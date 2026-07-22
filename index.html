@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>戶政雙向翻譯服務系統</title>
+  <style>
+    /* 基礎排版設定 */
+    body {
+      margin: 0;
+      font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif;
+      display: flex;
+      height: 100vh;
+      background-color: #f4f7f6;
+    }
+    
+    .container {
+      display: flex;
+      width: 100%;
+    }
+
+    /* 左右兩側面板設計 */
+    .panel {
+      flex: 1;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-right: 2px solid #ddd;
+    }
+    
+    .panel:last-child {
+      border-right: none;
+      background-color: #eef2f5;
+    }
+
+    /* 標題與選單 */
+    h2 {
+      color: #333;
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+    
+    select {
+      font-size: 1.8em;
+      padding: 10px 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    /* 顯示文字的區塊 */
+    .text-box {
+      width: 90%;
+      height: 300px;
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      font-size: 2.5em;
+      font-weight: bold;
+      color: #2c3e50;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      overflow-y: auto;
+      margin-bottom: 30px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      line-height: 1.5;
+    }
+
+    /* 按鈕設計 */
+    .btn {
+      font-size: 2.2em;
+      padding: 20px 50px;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      color: white;
+      transition: 0.3s;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+    
+    .btn-staff {
+      background-color: #4CAF50; /* 綠色 */
+    }
+    
+    .btn-staff:hover {
+      background-color: #45a049;
+    }
+    
+    .btn-citizen {
+      background-color: #2196F3; /* 藍色 */
+    }
+    
+    .btn-citizen:hover {
+      background-color: #0b7dda;
+    }
+
+    /* 收音時的動畫效果 */
+    .btn.recording {
+      background-color: #f44336; /* 紅色 */
+      animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <!-- 櫃檯人員端 (左側) -->
+    <div class="panel">
+      <h2>櫃檯人員 (中文)</h2>
+      <div class="text-box" id="staff-text">請按下方按鈕開始說話</div>
+      <button class="btn btn-staff" id="btn-staff" onclick="startRecognition('zh-TW', 'staff-text', 'citizen-text', document.getElementById('lang-select').value)">
+        中文發言
+      </button>
+    </div>
+
+    <!-- 民眾端 (右側) -->
+    <div class="panel">
+      <h2>外籍民眾</h2>
+      <select id="lang-select">
+        <option value="en">English (英文)</option>
+        <option value="ja">日本語 (日文)</option>
+        <option value="ko">한국어 (韓文)</option>
+        <option value="vi">Tiếng Việt (越南文)</option>
+        <option value="id">Bahasa Indonesia (印尼文)</option>
+        <option value="th">ภาษาไทย (泰文)</option>
+      </select>
+      <div class="text-box" id="citizen-text">Waiting for voice...</div>
+      <button class="btn btn-citizen" id="btn-citizen" onclick="startRecognition(document.getElementById('lang-select').value, 'citizen-text', 'staff-text', 'zh-TW')">
+        Speak
+      </button>
+    </div>
+    
+  </div>
+
+  <script>
+    // ⚠️ 請將雙引號內的網址替換為你 Google Apps Script 部署後產生的 Web App URL ⚠️
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyRvPgzI7Wwnn-L-Bo69vgOj478H8SaE8OXXSAMR-COMcyjoYX97yY4COTZ-p18drQC/exec"; 
+
+    // 檢查瀏覽器是否支援語音辨識 API
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    function startRecognition(sourceLang, sourceElemId, targetElemId, targetLang) {
+      if (!SpeechRecognition) {
+        alert("您的瀏覽器不支援語音辨識，建議使用 Brave 或 Chrome 瀏覽器。");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = sourceLang;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      const btn = event.target;
+      const originalText = btn.innerText;
+      
+      // 變更按鈕樣式提示正在收音
+      btn.classList.add("recording");
+      btn.innerText = "收音中...";
+      document.getElementById(sourceElemId).innerText = "聆聽中...";
+
+      recognition.start();
+
+      // 辨識成功，取得文字
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById(sourceElemId).innerText = transcript;
+        document.getElementById(targetElemId).innerText = "翻譯中...";
+        
+        // 呼叫翻譯函數
+        translateText(transcript, sourceLang, targetLang, targetElemId);
+      };
+
+      recognition.onspeechend = function() {
+        recognition.stop();
+      };
+
+      recognition.onend = function() {
+        btn.classList.remove("recording");
+        btn.innerText = originalText;
+      };
+
+      recognition.onerror = function(event) {
+        console.error("語音辨識錯誤代碼：", event.error);
+        document.getElementById(sourceElemId).innerText = "辨識失敗（" + event.error + "），請再試一次。";
+        btn.classList.remove("recording");
+        btn.innerText = originalText;
+      };
+    }
+
+    // 傳送文字至 Google Apps Script 進行翻譯
+    function translateText(text, source, target, targetElemId) {
+      if (GAS_URL.includes("請將雙引號內的網址替換")) {
+         document.getElementById(targetElemId).innerText = "【系統提示：請先在程式碼中設定 GAS_URL】";
+         return;
+      }
+
+      // 組合 API 請求網址
+      const url = `${GAS_URL}?text=${encodeURIComponent(text)}&source=${source}&target=${target}`;
+      
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          // 將翻譯結果顯示在對方的畫面上
+          document.getElementById(targetElemId).innerText = data.translated;
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          document.getElementById(targetElemId).innerText = "連線翻譯伺服器發生錯誤";
+        });
+    }
+  </script>
+</body>
+</html>
