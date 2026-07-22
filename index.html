@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>戶政雙向翻譯服務系統</title>
+  <title>平鎮戶政雙向翻譯服務系統</title>
 
   <!-- PWA 設定：讓「加入主畫面」後可全螢幕啟動 -->
   <link rel="manifest" href="manifest.json">
@@ -370,7 +370,7 @@
 
     // 傳送文字至 Google Apps Script 進行翻譯
     function translateText(text, source, target, targetElemId) {
-      if (GAS_URL.includes("請將雙引號內的網址替換")) {
+      if (GAS_URL.includes("https://script.google.com/macros/s/AKfycbwelifoH99yjFvjMIY_vraVf4LiRxypJ1-wKAWXQy1wJussTI58GALefPker17Lqlg/exec")) {
         document.getElementById(targetElemId).innerText = "【系統提示：請先在程式碼中設定 GAS_URL】";
         return;
       }
