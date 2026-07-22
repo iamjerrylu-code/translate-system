@@ -2,8 +2,20 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>戶政雙向翻譯服務系統</title>
+
+  <!-- PWA 設定：讓「加入主畫面」後可全螢幕啟動 -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="theme-color" content="#2c3e50">
+
+  <!-- iOS Safari 專用：讓「加入主畫面」的捷徑以獨立模式啟動（隱藏網址列） -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="雙向翻譯">
+
   <style>
     /* 基礎排版設定 */
     html, body {
@@ -71,7 +83,7 @@
       background: white;
       border-radius: 15px;
       padding: 20px;
-      font-size: 1.8em;
+      font-size: 3.6em;
       font-weight: bold;
       color: #2c3e50;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
@@ -169,7 +181,7 @@
     <!-- 民眾端 (上方，翻轉180度朝向對面) -->
     <div class="panel panel-citizen">
       <h2>外籍民眾</h2>
-      <select id="lang-select">
+      <select id="lang-select" onchange="updateSpeakLabel()">
         <option value="en">English (英文)</option>
         <option value="ja">日本語 (日文)</option>
         <option value="ko">한국어 (韓文)</option>
@@ -185,7 +197,7 @@
 
     <!-- 櫃檯人員端 (下方，正常方向) -->
     <div class="panel panel-staff">
-      <h2>櫃檯人員 (中文)</h2>
+      <h2>平鎮戶政櫃檯人員 (中文)</h2>
       <div class="text-box" id="staff-text">請按下方按鈕開始說話</div>
       <button class="btn btn-staff" id="btn-staff" onclick="startRecognition('zh-TW', 'staff-text', 'citizen-text', document.getElementById('lang-select').value)">
         中文發言
@@ -200,6 +212,37 @@
 
     // 檢查瀏覽器是否支援語音辨識 API
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    // 註冊 Service Worker（滿足 Android「加入主畫面/安裝應用程式」的條件）
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('sw.js').catch(function(err) {
+          console.warn('Service worker 註冊失敗：', err);
+        });
+      });
+    }
+
+    // 各語言對應的「Speak」按鈕文字
+    const speakLabels = {
+      en: "Speak",
+      ja: "話す",
+      ko: "말하기",
+      vi: "Nói",
+      id: "Bicara",
+      th: "พูด"
+    };
+
+    function updateSpeakLabel() {
+      const lang = document.getElementById('lang-select').value;
+      const btn = document.getElementById('btn-citizen');
+      // 若正在收音中，先不覆蓋「收音中...」的提示文字
+      if (!btn.classList.contains('recording')) {
+        btn.innerText = speakLabels[lang] || "Speak";
+      }
+    }
+
+    // 頁面載入時，依預設選擇的語言設定一次按鈕文字
+    updateSpeakLabel();
 
     // ------- 開場點擊：進入全螢幕並隱藏開場畫面 -------
     function startApp() {
