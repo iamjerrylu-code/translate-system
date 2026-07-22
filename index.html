@@ -238,6 +238,9 @@
         <option value="vi">Tiếng Việt (越南文)</option>
         <option value="id">Bahasa Indonesia (印尼文)</option>
         <option value="th">ภาษาไทย (泰文)</option>
+        <option value="fil">Filipino (菲律賓文)</option>
+        <option value="km">ភាសាខ្មែរ (柬埔寨文)</option>
+        <option value="my">မြန်မာဘာသာ (緬甸文)</option>
       </select>
       <div class="text-box" id="citizen-text">Waiting for voice...</div>
       <button class="btn btn-citizen" id="btn-citizen" onclick="startRecognition(document.getElementById('lang-select').value, 'citizen-text', 'staff-text', 'zh-TW')">
@@ -247,7 +250,7 @@
 
     <!-- 櫃檯人員端 (下方，正常方向) -->
     <div class="panel panel-staff">
-      <h2>平鎮戶政櫃檯人員 (中文)</h2>
+      <h2>平鎮戶政櫃檯人員</h2>
       <div class="text-box" id="staff-text">請按下方按鈕開始說話</div>
       <button class="btn btn-staff" id="btn-staff" onclick="startRecognition('zh-TW', 'staff-text', 'citizen-text', document.getElementById('lang-select').value)">
         中文發言
@@ -279,7 +282,10 @@
       ko: "말하기",
       vi: "Nói",
       id: "Bicara",
-      th: "พูด"
+      th: "พูด",
+      fil: "Magsalita",
+      km: "និយាយ",
+      my: "ပြောပါ"
     };
 
     function updateSpeakLabel() {
