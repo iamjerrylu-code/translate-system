@@ -2,50 +2,62 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>戶政雙向翻譯服務系統</title>
   <style>
     /* 基礎排版設定 */
-    body {
+    html, body {
       margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
       font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif;
-      display: flex;
-      height: 100vh;
       background-color: #f4f7f6;
     }
-    
+
     .container {
       display: flex;
+      flex-direction: column;
       width: 100%;
+      height: 100vh;
     }
 
-    /* 左右兩側面板設計 */
+    /* 上下兩個面板共用設定 */
     .panel {
       flex: 1;
-      padding: 40px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      border-right: 2px solid #ddd;
+      box-sizing: border-box;
+      position: relative;
     }
-    
-    .panel:last-child {
-      border-right: none;
+
+    /* 民眾端（上方）：置於桌上時朝向對面的民眾，因此整塊翻轉 180 度 */
+    .panel-citizen {
       background-color: #eef2f5;
+      border-bottom: 2px solid #ddd;
+      transform: rotate(180deg);
+    }
+
+    /* 櫃檯人員端（下方）：靠近操作人員這一側，維持正常方向 */
+    .panel-staff {
+      background-color: #f4f7f6;
     }
 
     /* 標題與選單 */
     h2 {
       color: #333;
-      font-size: 2.5em;
-      margin-bottom: 10px;
-    }
-    
-    select {
       font-size: 1.8em;
-      padding: 10px 20px;
-      margin-bottom: 20px;
+      margin: 0 0 10px 0;
+    }
+
+    select {
+      font-size: 1.3em;
+      padding: 8px 16px;
+      margin-bottom: 12px;
       border-radius: 8px;
       border: 1px solid #ccc;
     }
@@ -53,16 +65,18 @@
     /* 顯示文字的區塊 */
     .text-box {
       width: 90%;
-      height: 300px;
+      max-width: 700px;
+      flex: 1;
+      min-height: 0;
       background: white;
       border-radius: 15px;
-      padding: 30px;
-      font-size: 2.5em;
+      padding: 20px;
+      font-size: 1.8em;
       font-weight: bold;
       color: #2c3e50;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
       overflow-y: auto;
-      margin-bottom: 30px;
+      margin-bottom: 16px;
       text-align: center;
       display: flex;
       flex-direction: column;
@@ -72,28 +86,29 @@
 
     /* 按鈕設計 */
     .btn {
-      font-size: 2.2em;
-      padding: 20px 50px;
+      font-size: 1.5em;
+      padding: 14px 40px;
       border: none;
       border-radius: 50px;
       cursor: pointer;
       color: white;
       transition: 0.3s;
       box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+      flex-shrink: 0;
     }
-    
+
     .btn-staff {
       background-color: #4CAF50; /* 綠色 */
     }
-    
+
     .btn-staff:hover {
       background-color: #45a049;
     }
-    
+
     .btn-citizen {
       background-color: #2196F3; /* 藍色 */
     }
-    
+
     .btn-citizen:hover {
       background-color: #0b7dda;
     }
@@ -103,28 +118,56 @@
       background-color: #f44336; /* 紅色 */
       animation: pulse 1.5s infinite;
     }
-    
+
     @keyframes pulse {
       0% { transform: scale(1); }
       50% { transform: scale(1.05); }
       100% { transform: scale(1); }
     }
+
+    /* 開始畫面（用來取得使用者互動，才能觸發全螢幕） */
+    #start-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #2c3e50;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      cursor: pointer;
+      text-align: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #start-overlay h1 {
+      font-size: 2em;
+      margin-bottom: 20px;
+    }
+
+    #start-overlay p {
+      font-size: 1.2em;
+      opacity: 0.85;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    
-    <!-- 櫃檯人員端 (左側) -->
-    <div class="panel">
-      <h2>櫃檯人員 (中文)</h2>
-      <div class="text-box" id="staff-text">請按下方按鈕開始說話</div>
-      <button class="btn btn-staff" id="btn-staff" onclick="startRecognition('zh-TW', 'staff-text', 'citizen-text', document.getElementById('lang-select').value)">
-        中文發言
-      </button>
-    </div>
 
-    <!-- 民眾端 (右側) -->
-    <div class="panel">
+  <!-- 開場點擊畫面：用來取得使用者手勢以進入全螢幕 -->
+  <div id="start-overlay" onclick="startApp()">
+    <h1>👆 請點擊螢幕開始使用</h1>
+    <p>Tap the screen to start / タップして開始</p>
+  </div>
+
+  <div class="container">
+
+    <!-- 民眾端 (上方，翻轉180度朝向對面) -->
+    <div class="panel panel-citizen">
       <h2>外籍民眾</h2>
       <select id="lang-select">
         <option value="en">English (英文)</option>
@@ -139,19 +182,48 @@
         Speak
       </button>
     </div>
-    
+
+    <!-- 櫃檯人員端 (下方，正常方向) -->
+    <div class="panel panel-staff">
+      <h2>櫃檯人員 (中文)</h2>
+      <div class="text-box" id="staff-text">請按下方按鈕開始說話</div>
+      <button class="btn btn-staff" id="btn-staff" onclick="startRecognition('zh-TW', 'staff-text', 'citizen-text', document.getElementById('lang-select').value)">
+        中文發言
+      </button>
+    </div>
+
   </div>
 
   <script>
     // ⚠️ 請將雙引號內的網址替換為你 Google Apps Script 部署後產生的 Web App URL ⚠️
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbyRvPgzI7Wwnn-L-Bo69vgOj478H8SaE8OXXSAMR-COMcyjoYX97yY4COTZ-p18drQC/exec"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyRvPgzI7Wwnn-L-Bo69vgOj478H8SaE8OXXSAMR-COMcyjoYX97yY4COTZ-p18drQC/exec";
 
     // 檢查瀏覽器是否支援語音辨識 API
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
+
+    // ------- 開場點擊：進入全螢幕並隱藏開場畫面 -------
+    function startApp() {
+      const el = document.documentElement;
+      const requestFS = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (requestFS) {
+        requestFS.call(el).catch(err => {
+          console.warn("無法進入全螢幕：", err);
+        });
+      }
+      document.getElementById("start-overlay").style.display = "none";
+    }
+
+    // 如果使用者用手勢離開全螢幕（例如平板系統手勢），再次點擊畫面任一處可重新進入全螢幕
+    document.addEventListener("fullscreenchange", function() {
+      if (!document.fullscreenElement) {
+        document.getElementById("start-overlay").style.display = "flex";
+        document.getElementById("start-overlay").querySelector("h1").innerText = "👆 已離開全螢幕，請點擊螢幕重新開始";
+      }
+    });
+
     function startRecognition(sourceLang, sourceElemId, targetElemId, targetLang) {
       if (!SpeechRecognition) {
-        alert("您的瀏覽器不支援語音辨識，建議使用 Brave 或 Chrome 瀏覽器。");
+        alert("您的瀏覽器不支援語音辨識，建議使用 Chrome 瀏覽器。");
         return;
       }
 
@@ -162,7 +234,7 @@
 
       const btn = event.target;
       const originalText = btn.innerText;
-      
+
       // 變更按鈕樣式提示正在收音
       btn.classList.add("recording");
       btn.innerText = "收音中...";
@@ -175,7 +247,7 @@
         const transcript = event.results[0][0].transcript;
         document.getElementById(sourceElemId).innerText = transcript;
         document.getElementById(targetElemId).innerText = "翻譯中...";
-        
+
         // 呼叫翻譯函數
         translateText(transcript, sourceLang, targetLang, targetElemId);
       };
@@ -200,13 +272,13 @@
     // 傳送文字至 Google Apps Script 進行翻譯
     function translateText(text, source, target, targetElemId) {
       if (GAS_URL.includes("請將雙引號內的網址替換")) {
-         document.getElementById(targetElemId).innerText = "【系統提示：請先在程式碼中設定 GAS_URL】";
-         return;
+        document.getElementById(targetElemId).innerText = "【系統提示：請先在程式碼中設定 GAS_URL】";
+        return;
       }
 
       // 組合 API 請求網址
       const url = `${GAS_URL}?text=${encodeURIComponent(text)}&source=${source}&target=${target}`;
-      
+
       fetch(url)
         .then(response => response.json())
         .then(data => {
