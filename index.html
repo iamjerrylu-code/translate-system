@@ -53,7 +53,7 @@
 
     /* 民眾端（上方）：置於桌上時朝向對面的民眾，因此整塊翻轉 180 度 */
     .panel-citizen {
-      flex: 6.5;
+      flex: 5.5;
       background-color: #eef2f5;
       border-bottom: 2px solid #ddd;
       transform: rotate(180deg);
@@ -61,7 +61,7 @@
 
     /* 櫃檯人員端（下方）：靠近操作人員這一側，維持正常方向 */
     .panel-staff {
-      flex: 3.5;
+      flex: 4.5;
       background-color: #f4f7f6;
     }
 
@@ -358,7 +358,7 @@
     updateSpeakLabel();
     updatePrivacyNotice();
 
-    // ------- 開場點擊：進入全螢幕並隱藏開場畫面 -------
+    // ------- 開場點擊：進入全螢幕、預先索取麥克風權限、並隱藏開場畫面 -------
     function startApp() {
       const el = document.documentElement;
       const requestFS = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
@@ -367,6 +367,21 @@
           console.warn("無法進入全螢幕：", err);
         });
       }
+
+      // 提早跟系統要一次麥克風權限，讓瀏覽器（尤其是 Android/Chrome）
+      // 盡早把「允許」記住，減少之後語音辨識時重複詢問的機率。
+      // 注意：iOS「加入主畫面」的獨立模式，因系統本身限制，仍可能偶爾重新詢問。
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(function(stream) {
+            // 拿到權限後立刻關閉音軌，不會真的錄音或上傳
+            stream.getTracks().forEach(function(track) { track.stop(); });
+          })
+          .catch(function(err) {
+            console.warn("麥克風權限請求失敗或被拒絕：", err);
+          });
+      }
+
       document.getElementById("start-overlay").style.display = "none";
     }
 
