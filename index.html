@@ -423,10 +423,8 @@ Avoid sharing personal info</div>
 
   <script>
     // ======= 上班時間設定（可依實際需求調整） =======
-    // 上班開始／結束時間（24 小時制）
     const OFFICE_START = { hour: 7, minute: 30 };
     const OFFICE_END   = { hour: 17, minute: 30 };
-    // 允許使用的星期（0=週日, 1=週一, ..., 6=週六）。預設週一到週五。
     const OFFICE_DAYS = [1, 2, 3, 4, 5];
 
     function isOfficeHours() {
@@ -453,7 +451,6 @@ Avoid sharing personal info</div>
         overlay.style.display = 'flex';
         document.getElementById('office-hours-message').innerText =
           `本系統僅開放上班時間使用（週一至週五 ${pad2(OFFICE_START.hour)}:${pad2(OFFICE_START.minute)}–${pad2(OFFICE_END.hour)}:${pad2(OFFICE_END.minute)}）`;
-        // 若語音辨識正在進行中，離開上班時間就強制停止
         try {
           const btnCitizen = document.getElementById('btn-citizen');
           const btnStaff = document.getElementById('btn-staff');
@@ -463,7 +460,6 @@ Avoid sharing personal info</div>
       }
     }
 
-    // 進入頁面時先檢查一次，之後每 30 秒重新檢查一次
     checkOfficeHours();
     setInterval(checkOfficeHours, 30000);
 
@@ -531,7 +527,6 @@ Avoid sharing personal info</div>
       }
     };
 
-    // 各語言常見的「個資相關」關鍵字（口語提及姓名／身分證／地址／生日等時的觸發字詞）
     const piiKeywords = {
       "zh-TW": ["姓名", "身分證", "身份證", "身分證字號", "住址", "地址", "戶籍", "出生", "生日", "電話", "手機號碼", "護照號碼", "居留證"],
       en: ["my name is", "id number", "identity card", "passport number", "date of birth", "birthday", "born on", "address is", "phone number"],
@@ -545,34 +540,21 @@ Avoid sharing personal info</div>
       my: ["ကျွန်တော့်နာမည်", "ကျွန်မနာမည်", "မှတ်ပုံတင်", "ပတ်စ်ပို့နံပါတ်", "မွေးနေ့", "လိပ်စာ", "ဖုန်းနံပါတ်"]
     };
 
-    // 偵測疑似個資：數字型樣式（身分證字號、電話、日期等）採用「跨語言通用」規則，
-    // 文字關鍵字則依語言分別比對
     function detectPossiblePII(text, langCode) {
       if (!text) return false;
-
-      // 台灣身分證字號格式：1個英文字母 + 9碼數字
       if (/[A-Za-z][12]\d{8}/.test(text)) return true;
-
-      // 手機號碼格式：09 開頭共 10 碼（可能含連字號、空格）
       if (/09\d{2}[-\s]?\d{3}[-\s]?\d{3}/.test(text)) return true;
-
-      // 8 碼以上連續數字（可能是身分證、電話、生日等）
       if (/\d[\d\s-]{7,}\d/.test(text)) return true;
-
-      // 常見日期格式，如 1990/01/01、1990-01-01、民國79年1月1日、79年3月5日 等
       if (/\d{2,4}\s*[\/\-年]\s*\d{1,2}\s*[\/\-月]\s*\d{1,2}\s*日?/.test(text)) return true;
 
-      // 依語言比對常見「提及個資」的關鍵字／片語
       const keywords = piiKeywords[langCode] || [];
       const lowerText = text.toLowerCase();
       for (const kw of keywords) {
         if (lowerText.includes(kw.toLowerCase())) return true;
       }
-
       return false;
     }
 
-    // 暫存「使用者尚未決定是否傳送」的辨識結果
     let pendingTranslation = null;
 
     function showPiiWarning(langCode) {
@@ -582,7 +564,6 @@ Avoid sharing personal info</div>
       document.getElementById("pii-btn-cancel").innerText = labels.cancel;
       document.getElementById("pii-btn-send").innerText = labels.send;
       const overlay = document.getElementById("pii-warning-overlay");
-      // 若是外籍民眾發話觸發，警示視窗需翻轉180度朝向對面民眾；櫃檯人員（中文）發話則維持正常方向
       if (langCode === "zh-TW") {
         overlay.classList.remove("face-citizen");
       } else {
@@ -595,16 +576,11 @@ Avoid sharing personal info</div>
       document.getElementById("pii-warning-overlay").style.display = "none";
     }
 
-    // 使用者選擇「本句不傳送」
     function cancelPendingTranslation() {
       if (pendingTranslation) {
-        const noticeText = {
-          "zh-TW": "（此句未傳送）",
-        };
-        // 在來源畫面標註此句未傳送，避免造成困惑
         const sourceElem = document.getElementById(pendingTranslation.sourceElemId);
         if (sourceElem) {
-          sourceElem.innerText = pendingTranslation.transcript + " " + (noticeText["zh-TW"]);
+          sourceElem.innerText = pendingTranslation.transcript + " （此句未傳送）";
         }
         const targetElem = document.getElementById(pendingTranslation.targetElemId);
         if (targetElem) {
@@ -615,7 +591,6 @@ Avoid sharing personal info</div>
       hidePiiWarning();
     }
 
-    // 使用者選擇「繼續傳送」
     function confirmPendingTranslation() {
       if (pendingTranslation) {
         const { transcript, sourceLang, targetLang, targetElemId } = pendingTranslation;
@@ -629,16 +604,11 @@ Avoid sharing personal info</div>
       hidePiiWarning();
     }
 
-    // ⚠️ 請將雙引號內的網址替換為你 Google Apps Script 部署後產生的 Web App URL ⚠️
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwelifoH99yjFvjMIY_vraVf4LiRxypJ1-wKAWXQy1wJussTI58GALefPker17Lqlg/exec";
-
-    // ⚠️ 必須與 Code.gs 裡的 APP_SECRET 完全一致，否則後端會拒絕請求 ⚠️
     const APP_SECRET = "bc2ebd814749b213873005714e87af6d";
 
-    // 檢查瀏覽器是否支援語音辨識 API
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    // 註冊 Service Worker（滿足 Android「加入主畫面/安裝應用程式」的條件）
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
         navigator.serviceWorker.register('sw.js').catch(function(err) {
@@ -647,10 +617,9 @@ Avoid sharing personal info</div>
       });
     }
 
-    // 語音辨識 (Web Speech API) 在 iOS 上對語言代碼較嚴格，
-    // 沒帶地區碼的短碼（例如 "ja"）常會直接導致辨識失敗並回傳 "aborted" 錯誤。
-    // 這裡只用於 recognition.lang，不影響介面文字或送給翻譯 API 的語言代碼。
+    // 完整的語音辨識語系對應表（解決各語言無法收音的問題）
     const recognitionLangMap = {
+      "zh-TW": "zh-TW",
       en: "en-US",
       ja: "ja-JP",
       ko: "ko-KR",
@@ -662,7 +631,6 @@ Avoid sharing personal info</div>
       my: "my-MM"
     };
 
-    // 各語言對應的「Speak」按鈕文字
     const speakLabels = {
       en: "Speak",
       ja: "話す",
@@ -675,7 +643,19 @@ Avoid sharing personal info</div>
       my: "ပြောပါ"
     };
 
-    // 各語言對應的「翻譯中...」提示文字
+    // 各語言對應的「收音中...」提示文字（解決點選後按鈕文字未隨著變更的問題）
+    const recordingLabels = {
+      en: "Listening...",
+      ja: "収音中...",
+      ko: "듣는 중...",
+      vi: "Đang nghe...",
+      id: "Mendengarkan...",
+      th: "กำลังฟัง...",
+      fil: "Nakikinig...",
+      km: "កំពុងស្តាប់...",
+      my: "နားထောင်နေသည်..."
+    };
+
     const translatingLabels = {
       en: "Translating...",
       ja: "翻訳中...",
@@ -688,7 +668,6 @@ Avoid sharing personal info</div>
       my: "ဘာသာပြန်နေသည်..."
     };
 
-    // 各語言對應的「避免透露詳細個資」提醒文字（力求簡短、不超出一行）
     const privacyLabels = {
       en: "Avoid sharing personal info",
       ja: "詳しい個人情報は共有しないでください",
@@ -701,7 +680,6 @@ Avoid sharing personal info</div>
       my: "ကိုယ်ရေးအချက်အလက်အသေးစိတ် မမျှဝေပါနှင့်"
     };
 
-    // 各語言對應的「請按按鈕開始說話」提示文字
     const speakInstructionLabels = {
       en: "Tap the button to speak",
       ja: "ボタンを押して話してください",
@@ -714,20 +692,16 @@ Avoid sharing personal info</div>
       my: "စကားပြောရန် ခလုတ်ကိုနှိပ်ပါ"
     };
 
-    // 記錄外籍民眾訊息框目前是否仍停留在「預設提示」狀態
-    // （只有預設狀態下，切換語言才會更新框內文字；一旦開始對話就不再覆蓋）
     let citizenBoxIsDefault = true;
 
     function updateSpeakLabel() {
       const lang = document.getElementById('lang-select').value;
       const btn = document.getElementById('btn-citizen');
-      // 若正在收音中，先不覆蓋「收音中...」的提示文字
       if (!btn.classList.contains('recording')) {
         btn.innerText = speakLabels[lang] || "Speak";
       }
     }
 
-    // 更新外籍民眾訊息框內的預設提示文字（含操作說明＋隱私提醒），隨語言切換
     function updateCitizenDefaultText() {
       if (!citizenBoxIsDefault) return;
       const lang = document.getElementById('lang-select').value;
@@ -736,11 +710,9 @@ Avoid sharing personal info</div>
       document.getElementById('citizen-text').innerText = instruction + "\n" + privacy;
     }
 
-    // 頁面載入時，依預設選擇的語言設定一次按鈕文字與訊息框提示
     updateSpeakLabel();
     updateCitizenDefaultText();
 
-    // ------- 開場點擊：進入全螢幕、鎖定直向、預先索取麥克風權限 -------
     function startApp() {
       const el = document.documentElement;
       const requestFS = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
@@ -749,7 +721,6 @@ Avoid sharing personal info</div>
         let promise = requestFS.call(el);
         if (promise && promise.then) {
           promise.then(() => {
-            // 全螢幕成功後，嘗試將畫面鎖定為直向 (Portrait)
             if (screen.orientation && screen.orientation.lock) {
               screen.orientation.lock('portrait').catch(err => console.warn("無法鎖定螢幕方向：", err));
             }
@@ -757,25 +728,19 @@ Avoid sharing personal info</div>
             console.warn("無法進入全螢幕：", err);
           });
         } else {
-          // 支援舊版瀏覽器沒有回傳 promise 的情況
           if (screen.orientation && screen.orientation.lock) {
             screen.orientation.lock('portrait').catch(err => console.warn("無法鎖定螢幕方向：", err));
           }
         }
       } else {
-        // 如果瀏覽器不支援 requestFullscreen，仍嘗試鎖定方向
         if (screen.orientation && screen.orientation.lock) {
           screen.orientation.lock('portrait').catch(err => console.warn("無法鎖定螢幕方向：", err));
         }
       }
 
-      // 提早跟系統要一次麥克風權限，讓瀏覽器（尤其是 Android/Chrome）
-      // 盡早把「允許」記住，減少之後語音辨識時重複詢問的機率。
-      // 注意：iOS「加入主畫面」的獨立模式，因系統本身限制，仍可能偶爾重新詢問。
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ audio: true })
           .then(function(stream) {
-            // 拿到權限後立刻關閉音軌，不會真的錄音或上傳
             stream.getTracks().forEach(function(track) { track.stop(); });
           })
           .catch(function(err) {
@@ -786,7 +751,6 @@ Avoid sharing personal info</div>
       document.getElementById("start-overlay").style.display = "none";
     }
 
-    // 如果使用者用手勢離開全螢幕（例如平板系統手勢），再次點擊畫面任一處可重新進入全螢幕
     document.addEventListener("fullscreenchange", function() {
       if (!document.fullscreenElement) {
         document.getElementById("start-overlay").style.display = "flex";
@@ -808,39 +772,35 @@ Avoid sharing personal info</div>
       const btn = evt.currentTarget;
       const originalText = btn.innerText;
 
-      // 一旦民眾端訊息框即將被實際對話內容覆蓋，就不再套用預設語言提示
       if (sourceElemId === 'citizen-text' || targetElemId === 'citizen-text') {
         citizenBoxIsDefault = false;
       }
 
-      // 變更按鈕樣式提示正在收音
+      // 依發話端是誰，動態顯示對應語言的「收音中／聆聽中」提示
+      const currentRecordingLabel = (sourceLang === 'zh-TW') ? "收音中..." : (recordingLabels[sourceLang] || "Listening...");
+      const currentListeningLabel = (sourceLang === 'zh-TW') ? "聆聽中..." : (recordingLabels[sourceLang] || "Listening...");
+
       btn.classList.add("recording");
-      btn.innerText = "收音中...";
-      document.getElementById(sourceElemId).innerText = "聆聽中...";
+      btn.innerText = currentRecordingLabel;
+      document.getElementById(sourceElemId).innerText = currentListeningLabel;
 
       recognition.start();
 
-      // 辨識成功，取得文字
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript;
         document.getElementById(sourceElemId).innerText = transcript;
 
-        // 偵測這句話是否疑似包含個人資料
         if (detectPossiblePII(transcript, sourceLang)) {
-          // 暫停自動翻譯，先跳出警示視窗讓使用者決定
           pendingTranslation = { transcript, sourceLang, targetLang, sourceElemId, targetElemId };
           showPiiWarning(sourceLang);
           return;
         }
 
-        // 目標畫面若是外籍民眾端，「翻譯中」文字需依其選定語言顯示；
-        // 若目標是櫃檯人員端（中文），維持顯示中文提示
         const translatingText = (targetElemId === 'citizen-text')
           ? (translatingLabels[targetLang] || "Translating...")
           : "翻譯中...";
         document.getElementById(targetElemId).innerText = translatingText;
 
-        // 呼叫翻譯函數
         translateText(transcript, sourceLang, targetLang, targetElemId);
       };
 
@@ -869,19 +829,14 @@ Avoid sharing personal info</div>
       };
     }
 
-    // 傳送文字至 Google Apps Script 進行翻譯
-    // 改用 POST 並將內容放在 request body，避免民眾說話內容出現在網址列、
-    // 瀏覽器歷史紀錄或各種伺服器存取紀錄中。
     function translateText(text, source, target, targetElemId) {
       fetch(GAS_URL, {
         method: "POST",
-        // 用 text/plain 送出，可避免瀏覽器對 GAS 發出跨網域「預檢請求(preflight)」
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ text, source, target, key: APP_SECRET })
       })
         .then(response => response.json())
         .then(data => {
-          // 將翻譯結果顯示在對方的畫面上
           document.getElementById(targetElemId).innerText = data.translated;
         })
         .catch(error => {
