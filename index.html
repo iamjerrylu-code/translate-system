@@ -53,7 +53,7 @@
 
     /* 民眾端（上方）：置於桌上時朝向對面的民眾，因此整塊翻轉 180 度 */
     .panel-citizen {
-      flex: 5.5;
+      flex: 1;
       background-color: #eef2f5;
       border-bottom: 2px solid #ddd;
       transform: rotate(180deg);
@@ -61,7 +61,7 @@
 
     /* 櫃檯人員端（下方）：靠近操作人員這一側，維持正常方向 */
     .panel-staff {
-      flex: 4.5;
+      flex: 1;
       background-color: #f4f7f6;
     }
 
@@ -81,25 +81,6 @@
       border: 1px solid #ccc;
       flex-shrink: 0;
       max-width: 90%;
-    }
-
-    /* 隱私提醒黃色警示條 */
-    .privacy-notice {
-      width: 92%;
-      max-width: 700px;
-      background-color: #ffeb3b;
-      color: #1a1a1a;
-      font-size: clamp(0.7em, 2.6vw, 1em);
-      font-weight: bold;
-      padding: clamp(4px, 1.2vw, 8px) clamp(8px, 2vw, 14px);
-      border-radius: 8px;
-      margin-bottom: clamp(6px, 1.5vw, 10px);
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      flex-shrink: 0;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
 
     /* 顯示文字的區塊 */
@@ -122,6 +103,7 @@
       justify-content: center;
       line-height: 1.4;
       word-break: break-word;
+      white-space: pre-line;
     }
 
     /* 櫃檯人員對話框文字顏色：藍色 */
@@ -223,11 +205,6 @@
         margin-bottom: 2px;
       }
       select {
-        margin-bottom: 4px;
-      }
-      .privacy-notice {
-        font-size: clamp(0.6em, 2.2vw, 0.8em);
-        padding: 3px 8px;
         margin-bottom: 4px;
       }
       .text-box {
@@ -377,7 +354,7 @@
     <!-- 民眾端 (上方，翻轉180度朝向對面) -->
     <div class="panel panel-citizen">
       <h2>外籍民眾</h2>
-      <select id="lang-select" onchange="updateSpeakLabel(); updatePrivacyNotice();">
+      <select id="lang-select" onchange="updateSpeakLabel(); updateCitizenDefaultText();">
         <option value="en">English (英文)</option>
         <option value="ja">日本語 (日文)</option>
         <option value="ko">한국어 (韓文)</option>
@@ -388,8 +365,8 @@
         <option value="km">ភាសាខ្មែរ (柬埔寨文)</option>
         <option value="my">မြန်မာဘာသာ (緬甸文)</option>
       </select>
-      <div class="privacy-notice" id="privacy-notice">Please, no personal details in the chat.</div>
-      <div class="text-box" id="citizen-text">Waiting for voice...</div>
+      <div class="text-box" id="citizen-text">Tap the button to speak
+Avoid sharing personal info</div>
       <button class="btn btn-citizen" id="btn-citizen" onclick="startRecognition(document.getElementById('lang-select').value, 'citizen-text', 'staff-text', 'zh-TW')">
         Speak
       </button>
@@ -398,8 +375,8 @@
     <!-- 櫃檯人員端 (下方，正常方向) -->
     <div class="panel panel-staff">
       <h2>平鎮戶政櫃檯人員</h2>
-      <div class="privacy-notice">交談中避免透露詳細個資</div>
-      <div class="text-box" id="staff-text">請按下方按鈕開始說話</div>
+      <div class="text-box" id="staff-text">請按下方按鈕開始說話
+交談中請勿透露詳細個資</div>
       <button class="btn btn-staff" id="btn-staff" onclick="startRecognition('zh-TW', 'staff-text', 'citizen-text', document.getElementById('lang-select').value)">
         中文發言
       </button>
@@ -658,7 +635,7 @@
 
     // 各語言對應的「避免透露詳細個資」提醒文字（力求簡短、不超出一行）
     const privacyLabels = {
-      en: "Please, no personal details in the chat.",
+      en: "Avoid sharing personal info",
       ja: "詳しい個人情報は共有しないでください",
       ko: "개인정보를 자세히 공유하지 마세요",
       vi: "Vui lòng không chia sẻ thông tin cá nhân chi tiết",
@@ -669,6 +646,23 @@
       my: "ကိုယ်ရေးအချက်အလက်အသေးစိတ် မမျှဝေပါနှင့်"
     };
 
+    // 各語言對應的「請按按鈕開始說話」提示文字
+    const speakInstructionLabels = {
+      en: "Tap the button to speak",
+      ja: "ボタンを押して話してください",
+      ko: "버튼을 눌러 말씀해주세요",
+      vi: "Nhấn nút để nói",
+      id: "Ketuk tombol untuk berbicara",
+      th: "แตะปุ่มเพื่อพูด",
+      fil: "Pindutin ang button para magsalita",
+      km: "ចុចប៊ូតុងដើម្បីនិយាយ",
+      my: "စကားပြောရန် ခလုတ်ကိုနှိပ်ပါ"
+    };
+
+    // 記錄外籍民眾訊息框目前是否仍停留在「預設提示」狀態
+    // （只有預設狀態下，切換語言才會更新框內文字；一旦開始對話就不再覆蓋）
+    let citizenBoxIsDefault = true;
+
     function updateSpeakLabel() {
       const lang = document.getElementById('lang-select').value;
       const btn = document.getElementById('btn-citizen');
@@ -678,15 +672,18 @@
       }
     }
 
-    // 更新黃底黑字的隱私提醒文字（隨語言切換）
-    function updatePrivacyNotice() {
+    // 更新外籍民眾訊息框內的預設提示文字（含操作說明＋隱私提醒），隨語言切換
+    function updateCitizenDefaultText() {
+      if (!citizenBoxIsDefault) return;
       const lang = document.getElementById('lang-select').value;
-      document.getElementById('privacy-notice').innerText = privacyLabels[lang] || privacyLabels.en;
+      const instruction = speakInstructionLabels[lang] || speakInstructionLabels.en;
+      const privacy = privacyLabels[lang] || privacyLabels.en;
+      document.getElementById('citizen-text').innerText = instruction + "\n" + privacy;
     }
 
-    // 頁面載入時，依預設選擇的語言設定一次按鈕文字與隱私提醒
+    // 頁面載入時，依預設選擇的語言設定一次按鈕文字與訊息框提示
     updateSpeakLabel();
-    updatePrivacyNotice();
+    updateCitizenDefaultText();
 
     // ------- 開場點擊：進入全螢幕、預先索取麥克風權限、並隱藏開場畫面 -------
     function startApp() {
@@ -736,6 +733,11 @@
 
       const btn = event.target;
       const originalText = btn.innerText;
+
+      // 一旦民眾端訊息框即將被實際對話內容覆蓋，就不再套用預設語言提示
+      if (sourceElemId === 'citizen-text' || targetElemId === 'citizen-text') {
+        citizenBoxIsDefault = false;
+      }
 
       // 變更按鈕樣式提示正在收音
       btn.classList.add("recording");
