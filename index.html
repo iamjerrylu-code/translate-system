@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>平鎮戶政雙向翻譯服務系統</title>
+  <!-- 修正版：改善日文、韓文、越南文等外語轉中文的語音辨識卡住問題 -->
   <!-- PWA 設定：讓「加入主畫面」後可全螢幕啟動 -->
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon-192.png">
@@ -724,51 +725,115 @@ Avoid sharing personal info</div>
 
     function startRecognition(evt, sourceLang, sourceElemId, targetElemId, targetLang) {
       if (!SpeechRecognition) {
-        alert("您的瀏覽器不支援語音辨識，建議使用 Chrome 瀏覽器。");
+        alert("您的瀏覽器不支援語音辨識，建議使用最新版 Chrome 瀏覽器。");
         return;
       }
 
-      // 確保即時抓取下拉選單最新值，並透過對應表取得完整語系代碼（如 ja-JP）
-      const currentSelectedLang = document.getElementById('lang-select').value;
-      if (sourceLang !== 'zh-TW') {
-        sourceLang = currentSelectedLang;
+      // 民眾端每次按下按鈕時，都重新讀取目前選定語言。
+      // 避免切換日文、韓文等語言後，仍沿用先前的辨識語系。
+      if (sourceElemId === 'citizen-text') {
+        sourceLang = document.getElementById('lang-select').value;
         targetLang = 'zh-TW';
       }
 
       const recognition = new SpeechRecognition();
-      recognition.lang = recognitionLangMap[sourceLang] || sourceLang;
+      const recognitionLang = recognitionLangMap[sourceLang] || sourceLang;
+
+      recognition.lang = recognitionLang;
       recognition.interimResults = false;
+      recognition.continuous = false;
       recognition.maxAlternatives = 1;
 
       const btn = evt.currentTarget;
       const originalText = btn.innerText;
+      let gotResult = false;
+      let finished = false;
+      let timeoutId = null;
 
       if (sourceElemId === 'citizen-text' || targetElemId === 'citizen-text') {
         citizenBoxIsDefault = false;
       }
 
-      const currentRecordingLabel = (sourceLang === 'zh-TW') ? "收音中..." : (recordingLabels[sourceLang] || "Listening...");
-      const currentListeningLabel = (sourceLang === 'zh-TW') ? "聆聽中..." : (recordingLabels[sourceLang] || "Listening...");
+      const currentRecordingLabel = (sourceLang === 'zh-TW')
+        ? "收音中..."
+        : (recordingLabels[sourceLang] || "Listening...");
+
+      const currentListeningLabel = (sourceLang === 'zh-TW')
+        ? "聆聽中..."
+        : (recordingLabels[sourceLang] || "Listening...");
+
+      function restoreButton() {
+        btn.classList.remove("recording");
+        // 語言可能已切換，因此民眾端恢復目前語言的按鈕名稱
+        if (sourceElemId === 'citizen-text') {
+          const currentLang = document.getElementById('lang-select').value;
+          btn.innerText = speakLabels[currentLang] || "Speak";
+        } else {
+          btn.innerText = originalText;
+        }
+      }
+
+      function clearRecognitionTimeout() {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      }
 
       btn.classList.add("recording");
       btn.innerText = currentRecordingLabel;
       document.getElementById(sourceElemId).innerText = currentListeningLabel;
 
-      try {
-        recognition.start();
-      } catch (err) {
-        console.error("啟動語音辨識發生例外：", err);
-        btn.classList.remove("recording");
-        btn.innerText = originalText;
-        return;
-      }
+      // 部分 Chrome / Android 裝置在非英文語系可能不觸發 speechend，
+      // 因此加入 12 秒保險逾時，避免畫面永久卡在「收音中」。
+      timeoutId = setTimeout(function() {
+        if (finished || gotResult) return;
+        try { recognition.stop(); } catch (e) {}
+        document.getElementById(sourceElemId).innerText =
+          (sourceLang === 'zh-TW')
+            ? "未偵測到語音，請再按一次並靠近麥克風說話。"
+            : "未偵測到語音，請再按一次並以所選語言說話。";
+        restoreButton();
+      }, 12000);
+
+      recognition.onstart = function() {
+        console.log("語音辨識已啟動，語系：", recognitionLang);
+      };
+
+      recognition.onaudiostart = function() {
+        console.log("麥克風已開始接收音訊");
+      };
+
+      recognition.onspeechstart = function() {
+        console.log("已偵測到語音");
+      };
 
       recognition.onresult = function(event) {
-        const transcript = event.results[0][0].transcript;
+        gotResult = true;
+        clearRecognitionTimeout();
+
+        if (!event.results || !event.results[0] || !event.results[0][0]) {
+          document.getElementById(sourceElemId).innerText = "未取得辨識結果，請再試一次。";
+          return;
+        }
+
+        const transcript = event.results[0][0].transcript.trim();
+
+        if (!transcript) {
+          document.getElementById(sourceElemId).innerText = "未取得辨識文字，請再試一次。";
+          return;
+        }
+
         document.getElementById(sourceElemId).innerText = transcript;
 
         if (detectPossiblePII(transcript, sourceLang)) {
-          pendingTranslation = { transcript, sourceLang, targetLang, sourceElemId, targetElemId };
+          pendingTranslation = {
+            transcript,
+            sourceLang,
+            targetLang,
+            sourceElemId,
+            targetElemId
+          };
           showPiiWarning(sourceLang);
           return;
         }
@@ -776,34 +841,63 @@ Avoid sharing personal info</div>
         const translatingText = (targetElemId === 'citizen-text')
           ? (translatingLabels[targetLang] || "Translating...")
           : "翻譯中...";
-        document.getElementById(targetElemId).innerText = translatingText;
 
+        document.getElementById(targetElemId).innerText = translatingText;
         translateText(transcript, sourceLang, targetLang, targetElemId);
       };
 
-      recognition.onspeechend = function() {
-        recognition.stop();
+      recognition.onnomatch = function() {
+        clearRecognitionTimeout();
+        document.getElementById(sourceElemId).innerText =
+          "聽到聲音，但無法辨識內容，請說慢一點再試一次。";
       };
 
-      recognition.onend = function() {
-        btn.classList.remove("recording");
-        btn.innerText = originalText;
+      recognition.onspeechend = function() {
+        console.log("語音輸入結束");
+        try { recognition.stop(); } catch (e) {}
+      };
+
+      recognition.onaudioend = function() {
+        console.log("麥克風音訊接收結束");
       };
 
       recognition.onerror = function(event) {
-        console.error("語音辨識錯誤代碼：", event.error);
+        clearRecognitionTimeout();
+        console.error("語音辨識錯誤：", event.error, "；語系：", recognitionLang);
+
         const friendlyErrors = {
           "no-speech": "沒有偵測到聲音，請再試一次。",
-          "audio-capture": "無法使用麥克風，請確認裝置權限設定。",
-          "not-allowed": "麥克風權限被拒絕，請至設定開啟權限。",
-          "aborted": "辨識中斷，請再試一次。",
-          "network": "網路連線異常，請再試一次。"
+          "audio-capture": "無法使用麥克風，請確認裝置的麥克風權限。",
+          "not-allowed": "麥克風或語音辨識權限被拒絕，請至瀏覽器設定開啟權限。",
+          "service-not-allowed": "瀏覽器的語音辨識服務目前無法使用。",
+          "aborted": "語音辨識已中斷，請再試一次。",
+          "network": "語音辨識服務連線異常，請確認網路後再試一次。",
+          "language-not-supported": "目前裝置或瀏覽器不支援所選語言的語音辨識。"
         };
+
         document.getElementById(sourceElemId).innerText =
-          friendlyErrors[event.error] || ("辨識失敗（" + event.error + "），請再試一次。");
-        btn.classList.remove("recording");
-        btn.innerText = originalText;
+          friendlyErrors[event.error] ||
+          ("語音辨識失敗（" + event.error + "），請再試一次。");
+
+        restoreButton();
       };
+
+      recognition.onend = function() {
+        finished = true;
+        clearRecognitionTimeout();
+        console.log("語音辨識結束；語系：", recognitionLang, "；是否取得結果：", gotResult);
+        restoreButton();
+      };
+
+      try {
+        recognition.start();
+      } catch (err) {
+        clearRecognitionTimeout();
+        console.error("啟動語音辨識發生例外：", err);
+        document.getElementById(sourceElemId).innerText =
+          "無法啟動語音辨識，請稍候再試一次。";
+        restoreButton();
+      }
     }
 
     function translateText(text, source, target, targetElemId) {
