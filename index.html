@@ -103,7 +103,6 @@
       font-weight: bold;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
       overflow-y: auto;
-      /* 重新精算此處數值，讓文字框底部剛好與按鈕頂部切齊 */
       margin-bottom: clamp(41px, 10vw, 57px);
       text-align: center;
       display: flex;
@@ -124,12 +123,10 @@
       color: #D6336C;
     }
 
-    /* 左下角常駐白色文字標籤（位於訊息框與畫面邊界之間） */
+    /* 左下角常駐白色文字標籤 */
     .corner-label {
       position: absolute;
-      /* 確保動態對齊上方 .text-box 的左側（支援 90% 寬度與 700px 限制） */
       left: max(5%, calc(50% - 350px)); 
-      /* 與浮動按鈕的底部切齊 */
       bottom: clamp(10px, 3vw, 20px); 
       color: #ffffff;
       font-size: clamp(1.3em, 4.6vw, 1.8em);
@@ -154,7 +151,6 @@
       white-space: nowrap;
     }
 
-    /* 浮動按鈕：移至面板右下角，可與訊息框重疊 */
     .btn-floating {
       position: absolute;
       right: clamp(10px, 3vw, 20px);
@@ -163,7 +159,6 @@
       margin: 0;
     }
 
-    /* 櫃檯人員按鈕：改為對應的藍色 */
     .btn-staff {
       background-color: #1565C0; 
     }
@@ -172,7 +167,6 @@
       background-color: #0D47A1;
     }
 
-    /* 民眾端按鈕：改為對應的粉紅色 */
     .btn-citizen {
       background-color: #D6336C; 
     }
@@ -181,9 +175,8 @@
       background-color: #A92353;
     }
 
-    /* 收音時的動畫效果 */
     .btn.recording {
-      background-color: #f44336; /* 紅色 */
+      background-color: #f44336;
       animation: pulse 1.5s infinite;
     }
 
@@ -193,7 +186,6 @@
       100% { transform: scale(1); }
     }
 
-    /* 開始畫面（用來取得使用者互動，才能觸發全螢幕） */
     #start-overlay {
       position: fixed;
       top: 0;
@@ -223,32 +215,17 @@
       opacity: 0.85;
     }
 
-    /* 手機直向、螢幕較窄時，稍微收緊間距 */
     @media (max-width: 480px) {
-      .panel {
-        padding: 6px;
-      }
+      .panel { padding: 6px; }
     }
 
-    /* 手機橫向、螢幕高度較矮時，避免面板被壓縮到看不清楚 */
     @media (max-height: 420px) {
-      select {
-        font-size: clamp(0.8em, 2.8vw, 1.1em);
-      }
-      .text-box {
-        font-size: clamp(1.1em, 5vw, 2em);
-        padding: 8px;
-        /* 同步精算橫向小螢幕的距離 */
-        margin-bottom: 38px;
-      }
-      .btn {
-        padding: 8px 20px;
-      }
-      .corner-label {
-        font-size: clamp(1.1em, 4vw, 1.5em);
-      }
+      select { font-size: clamp(0.8em, 2.8vw, 1.1em); }
+      .text-box { font-size: clamp(1.1em, 5vw, 2em); padding: 8px; margin-bottom: 38px; }
+      .btn { padding: 8px 20px; }
+      .corner-label { font-size: clamp(1.1em, 4vw, 1.5em); }
     }
-    /* 非上班時間鎖定畫面 */
+
     #office-hours-overlay {
       position: fixed;
       top: 0;
@@ -277,7 +254,7 @@
       opacity: 0.85;
       margin: 4px 0;
     }
-    /* 疑似個資偵測警示視窗 */
+
     #pii-warning-overlay {
       position: fixed;
       top: 0;
@@ -293,7 +270,6 @@
       box-sizing: border-box;
     }
 
-    /* 當是外籍民眾發話觸發時，警示視窗需整個翻轉180度，方便對面民眾閱讀 */
     #pii-warning-overlay.face-citizen {
       transform: rotate(180deg);
     }
@@ -345,30 +321,22 @@
       font-weight: bold;
     }
 
-    .pii-btn-cancel {
-      background-color: #757575;
-    }
-
-    .pii-btn-send {
-      background-color: #e53935;
-    }
+    .pii-btn-cancel { background-color: #757575; }
+    .pii-btn-send { background-color: #e53935; }
   </style>
 </head>
 <body>
 
-  <!-- 開場點擊畫面：用來取得使用者手勢以進入全螢幕 -->
   <div id="start-overlay" onclick="startApp()">
     <h1>👆 請點擊螢幕開始使用</h1>
     <p>僅支援直式螢幕不支援橫式使用</p>
   </div>
 
-  <!-- 非上班時間鎖定畫面 -->
   <div id="office-hours-overlay">
     <h1>⏰ 目前非服務時間</h1>
     <p id="office-hours-message">本系統僅開放上班時間使用</p>
   </div>
 
-  <!-- 疑似個資偵測警示視窗 -->
   <div id="pii-warning-overlay">
     <div id="pii-warning-box">
       <div class="pii-icon">⚠️</div>
@@ -384,6 +352,7 @@
   <div class="container">
 
     <!-- 民眾端 (上方，翻轉180度朝向對面) -->
+    <!-- 修正：onclick 直接動態讀取當前下拉選單的值作為 sourceLang -->
     <div class="panel panel-citizen">
       <div class="text-box" id="citizen-text">Tap the button to speak
 Avoid sharing personal info</div>
@@ -422,7 +391,6 @@ Avoid sharing personal info</div>
   </div>
 
   <script>
-    // ======= 上班時間設定（可依實際需求調整） =======
     const OFFICE_START = { hour: 7, minute: 30 };
     const OFFICE_END   = { hour: 17, minute: 30 };
     const OFFICE_DAYS = [1, 2, 3, 4, 5];
@@ -439,9 +407,7 @@ Avoid sharing personal info</div>
       return nowMinutes >= startMinutes && nowMinutes < endMinutes;
     }
 
-    function pad2(n) {
-      return String(n).padStart(2, '0');
-    }
+    function pad2(n) { return String(n).padStart(2, '0'); }
 
     function checkOfficeHours() {
       const overlay = document.getElementById('office-hours-overlay');
@@ -463,7 +429,6 @@ Avoid sharing personal info</div>
     checkOfficeHours();
     setInterval(checkOfficeHours, 30000);
 
-    // ======= 疑似個資偵測：多語言警示文字 =======
     const piiWarningLabels = {
       "zh-TW": {
         title: "偵測到疑似個人資料",
@@ -617,7 +582,7 @@ Avoid sharing personal info</div>
       });
     }
 
-    // 完整的語音辨識語系對應表（解決各語言無法收音的問題）
+    // 完整的語音辨識語系對應表
     const recognitionLangMap = {
       "zh-TW": "zh-TW",
       en: "en-US",
@@ -643,7 +608,6 @@ Avoid sharing personal info</div>
       my: "ပြောပါ"
     };
 
-    // 各語言對應的「收音中...」提示文字（解決點選後按鈕文字未隨著變更的問題）
     const recordingLabels = {
       en: "Listening...",
       ja: "収音中...",
@@ -764,6 +728,13 @@ Avoid sharing personal info</div>
         return;
       }
 
+      // 確保即時抓取下拉選單最新值，並透過對應表取得完整語系代碼（如 ja-JP）
+      const currentSelectedLang = document.getElementById('lang-select').value;
+      if (sourceLang !== 'zh-TW') {
+        sourceLang = currentSelectedLang;
+        targetLang = 'zh-TW';
+      }
+
       const recognition = new SpeechRecognition();
       recognition.lang = recognitionLangMap[sourceLang] || sourceLang;
       recognition.interimResults = false;
@@ -776,7 +747,6 @@ Avoid sharing personal info</div>
         citizenBoxIsDefault = false;
       }
 
-      // 依發話端是誰，動態顯示對應語言的「收音中／聆聽中」提示
       const currentRecordingLabel = (sourceLang === 'zh-TW') ? "收音中..." : (recordingLabels[sourceLang] || "Listening...");
       const currentListeningLabel = (sourceLang === 'zh-TW') ? "聆聽中..." : (recordingLabels[sourceLang] || "Listening...");
 
@@ -784,7 +754,14 @@ Avoid sharing personal info</div>
       btn.innerText = currentRecordingLabel;
       document.getElementById(sourceElemId).innerText = currentListeningLabel;
 
-      recognition.start();
+      try {
+        recognition.start();
+      } catch (err) {
+        console.error("啟動語音辨識發生例外：", err);
+        btn.classList.remove("recording");
+        btn.innerText = originalText;
+        return;
+      }
 
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript;
