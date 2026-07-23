@@ -103,8 +103,8 @@
       font-weight: bold;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
       overflow-y: auto;
-      /* 將原本的 clamp(26px, 7vw, 40px) 增大，迫使文字框往上縮，空出底部黑色區域 */
-      margin-bottom: clamp(65px, 12vw, 90px);
+      /* 重新精算此處數值，讓文字框底部剛好與按鈕頂部切齊 */
+      margin-bottom: clamp(41px, 10vw, 57px);
       text-align: center;
       display: flex;
       flex-direction: column;
@@ -238,8 +238,8 @@
       .text-box {
         font-size: clamp(1.1em, 5vw, 2em);
         padding: 8px;
-        /* 同步將小螢幕模式的底部間距拉大 */
-        margin-bottom: 50px;
+        /* 同步精算橫向小螢幕的距離 */
+        margin-bottom: 38px;
       }
       .btn {
         padding: 8px 20px;
