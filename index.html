@@ -126,8 +126,10 @@
     /* 左下角常駐白色文字標籤（位於訊息框與畫面邊界之間） */
     .corner-label {
       position: absolute;
-      left: clamp(12px, 4vw, 22px);
-      bottom: clamp(6px, 2vw, 12px);
+      /* 確保動態對齊上方 .text-box 的左側（支援 90% 寬度與 700px 限制） */
+      left: max(5%, calc(50% - 350px)); 
+      /* 與浮動按鈕的底部切齊 */
+      bottom: clamp(10px, 3vw, 20px); 
       color: #ffffff;
       /* 已放大 2 倍 */
       font-size: clamp(1.3em, 4.6vw, 1.8em);
@@ -388,7 +390,7 @@ Avoid sharing personal info</div>
       <button class="btn btn-citizen btn-floating" id="btn-citizen" onclick="startRecognition(document.getElementById('lang-select').value, 'citizen-text', 'staff-text', 'zh-TW')">
         Speak
       </button>
-      <div class="corner-label">平鎮戶政多語通</div>
+      <div class="corner-label">戶政多語通</div>
     </div>
 
     <!-- 中間語言選擇列 -->
@@ -414,7 +416,7 @@ Avoid sharing personal info</div>
       <button class="btn btn-staff btn-floating" id="btn-staff" onclick="startRecognition('zh-TW', 'staff-text', 'citizen-text', document.getElementById('lang-select').value)">
         說話
       </button>
-      <div class="corner-label">平鎮戶政多語通</div>
+      <div class="corner-label">戶政多語通</div>
     </div>
 
   </div>
