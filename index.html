@@ -103,7 +103,8 @@
       font-weight: bold;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
       overflow-y: auto;
-      margin-bottom: clamp(26px, 7vw, 40px);
+      /* 將原本的 clamp(26px, 7vw, 40px) 增大，迫使文字框往上縮，空出底部黑色區域 */
+      margin-bottom: clamp(65px, 12vw, 90px);
       text-align: center;
       display: flex;
       flex-direction: column;
@@ -131,7 +132,6 @@
       /* 與浮動按鈕的底部切齊 */
       bottom: clamp(10px, 3vw, 20px); 
       color: #ffffff;
-      /* 已放大 2 倍 */
       font-size: clamp(1.3em, 4.6vw, 1.8em);
       font-weight: bold;
       opacity: 0.9;
@@ -238,13 +238,13 @@
       .text-box {
         font-size: clamp(1.1em, 5vw, 2em);
         padding: 8px;
-        margin-bottom: 20px;
+        /* 同步將小螢幕模式的底部間距拉大 */
+        margin-bottom: 50px;
       }
       .btn {
         padding: 8px 20px;
       }
       .corner-label {
-        /* 已放大 2 倍 */
         font-size: clamp(1.1em, 4vw, 1.5em);
       }
     }
