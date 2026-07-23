@@ -129,6 +129,7 @@
       left: clamp(12px, 4vw, 22px);
       bottom: clamp(6px, 2vw, 12px);
       color: #ffffff;
+      /* 已放大 2 倍 */
       font-size: clamp(1.3em, 4.6vw, 1.8em);
       font-weight: bold;
       opacity: 0.9;
@@ -160,20 +161,22 @@
       margin: 0;
     }
 
+    /* 櫃檯人員按鈕：改為對應的藍色 */
     .btn-staff {
-      background-color: #1565C0; /* 與櫃台訊息框文字同色：藍色 */
+      background-color: #1565C0; 
     }
 
     .btn-staff:hover {
-      background-color: #0d47a1;
+      background-color: #0D47A1;
     }
 
+    /* 民眾端按鈕：改為對應的粉紅色 */
     .btn-citizen {
-      background-color: #D6336C; /* 與民眾訊息框文字同色：粉紅色 */
+      background-color: #D6336C; 
     }
 
     .btn-citizen:hover {
-      background-color: #b02052;
+      background-color: #A92353;
     }
 
     /* 收音時的動畫效果 */
@@ -239,6 +242,7 @@
         padding: 8px 20px;
       }
       .corner-label {
+        /* 已放大 2 倍 */
         font-size: clamp(1.1em, 4vw, 1.5em);
       }
     }
@@ -346,40 +350,6 @@
     .pii-btn-send {
       background-color: #e53935;
     }
-    /* 禁止橫向使用：橫向時蓋上提示畫面 */
-    #landscape-lock-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: #000000;
-      color: white;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 1300;
-      text-align: center;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-
-    #landscape-lock-overlay .rotate-icon {
-      font-size: clamp(2em, 8vw, 3em);
-      margin-bottom: 12px;
-    }
-
-    #landscape-lock-overlay p {
-      font-size: clamp(0.95em, 3.6vw, 1.3em);
-      opacity: 0.9;
-    }
-
-    @media (orientation: landscape) {
-      #landscape-lock-overlay {
-        display: flex;
-      }
-    }
   </style>
 </head>
 <body>
@@ -394,12 +364,6 @@
   <div id="office-hours-overlay">
     <h1>⏰ 目前非服務時間</h1>
     <p id="office-hours-message">本系統僅開放上班時間使用</p>
-  </div>
-
-  <!-- 禁止橫向使用提示畫面 -->
-  <div id="landscape-lock-overlay">
-    <div class="rotate-icon">📱</div>
-    <p>本系統僅支援直向使用<br>請將裝置轉回直向</p>
   </div>
 
   <!-- 疑似個資偵測警示視窗 -->
@@ -756,27 +720,33 @@ Avoid sharing personal info</div>
     updateSpeakLabel();
     updateCitizenDefaultText();
 
-    // ------- 開場點擊：進入全螢幕、鎖定直向、預先索取麥克風權限、並隱藏開場畫面 -------
+    // ------- 開場點擊：進入全螢幕、鎖定直向、預先索取麥克風權限 -------
     function startApp() {
       const el = document.documentElement;
       const requestFS = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      
       if (requestFS) {
-        requestFS.call(el)
-          .then(function() {
-            // 進入全螢幕後嘗試鎖定為直向（僅部分瀏覽器如 Android/Chrome 支援）
+        let promise = requestFS.call(el);
+        if (promise && promise.then) {
+          promise.then(() => {
+            // 全螢幕成功後，嘗試將畫面鎖定為直向 (Portrait)
             if (screen.orientation && screen.orientation.lock) {
-              screen.orientation.lock("portrait").catch(function(err) {
-                console.warn("無法鎖定螢幕方向：", err);
-              });
+              screen.orientation.lock('portrait').catch(err => console.warn("無法鎖定螢幕方向：", err));
             }
-          })
-          .catch(err => {
+          }).catch(err => {
             console.warn("無法進入全螢幕：", err);
           });
-      } else if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock("portrait").catch(function(err) {
-          console.warn("無法鎖定螢幕方向：", err);
-        });
+        } else {
+          // 支援舊版瀏覽器沒有回傳 promise 的情況
+          if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('portrait').catch(err => console.warn("無法鎖定螢幕方向：", err));
+          }
+        }
+      } else {
+        // 如果瀏覽器不支援 requestFullscreen，仍嘗試鎖定方向
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('portrait').catch(err => console.warn("無法鎖定螢幕方向：", err));
+        }
       }
 
       // 提早跟系統要一次麥克風權限，讓瀏覽器（尤其是 Android/Chrome）
