@@ -647,6 +647,21 @@ Avoid sharing personal info</div>
       });
     }
 
+    // 語音辨識 (Web Speech API) 在 iOS 上對語言代碼較嚴格，
+    // 沒帶地區碼的短碼（例如 "ja"）常會直接導致辨識失敗並回傳 "aborted" 錯誤。
+    // 這裡只用於 recognition.lang，不影響介面文字或送給翻譯 API 的語言代碼。
+    const recognitionLangMap = {
+      en: "en-US",
+      ja: "ja-JP",
+      ko: "ko-KR",
+      vi: "vi-VN",
+      id: "id-ID",
+      th: "th-TH",
+      fil: "fil-PH",
+      km: "km-KH",
+      my: "my-MM"
+    };
+
     // 各語言對應的「Speak」按鈕文字
     const speakLabels = {
       en: "Speak",
@@ -786,7 +801,7 @@ Avoid sharing personal info</div>
       }
 
       const recognition = new SpeechRecognition();
-      recognition.lang = sourceLang;
+      recognition.lang = recognitionLangMap[sourceLang] || sourceLang;
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
@@ -840,7 +855,15 @@ Avoid sharing personal info</div>
 
       recognition.onerror = function(event) {
         console.error("語音辨識錯誤代碼：", event.error);
-        document.getElementById(sourceElemId).innerText = "辨識失敗（" + event.error + "），請再試一次。";
+        const friendlyErrors = {
+          "no-speech": "沒有偵測到聲音，請再試一次。",
+          "audio-capture": "無法使用麥克風，請確認裝置權限設定。",
+          "not-allowed": "麥克風權限被拒絕，請至設定開啟權限。",
+          "aborted": "辨識中斷，請再試一次。",
+          "network": "網路連線異常，請再試一次。"
+        };
+        document.getElementById(sourceElemId).innerText =
+          friendlyErrors[event.error] || ("辨識失敗（" + event.error + "），請再試一次。");
         btn.classList.remove("recording");
         btn.innerText = originalText;
       };
