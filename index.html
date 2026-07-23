@@ -359,7 +359,7 @@
   <!-- 開場點擊畫面：用來取得使用者手勢以進入全螢幕 -->
   <div id="start-overlay" onclick="startApp()">
     <h1>👆 請點擊螢幕開始使用</h1>
-    <p>Tap the screen to start / タップして開始</p>
+    <p>僅支援直式螢幕不支援橫式使用</p>
   </div>
 
   <!-- 非上班時間鎖定畫面 -->
@@ -387,7 +387,7 @@
     <div class="panel panel-citizen">
       <div class="text-box" id="citizen-text">Tap the button to speak
 Avoid sharing personal info</div>
-      <button class="btn btn-citizen btn-floating" id="btn-citizen" onclick="startRecognition(document.getElementById('lang-select').value, 'citizen-text', 'staff-text', 'zh-TW')">
+      <button class="btn btn-citizen btn-floating" id="btn-citizen" onclick="startRecognition(event, document.getElementById('lang-select').value, 'citizen-text', 'staff-text', 'zh-TW')">
         Speak
       </button>
       <div class="corner-label">戶政多語通</div>
@@ -396,24 +396,24 @@ Avoid sharing personal info</div>
     <!-- 中間語言選擇列 -->
     <div class="lang-bar">
       <span class="translate-icon" aria-hidden="true">🌐</span>
-      <select id="lang-select" onchange="updateSpeakLabel()">
-  <option value="en-US">English (英文)</option>
-  <option value="ja-JP">日本語 (日文)</option>
-  <option value="ko-KR">한국어 (韓文)</option>
-  <option value="vi-VN">Tiếng Việt (越南文)</option>
-  <option value="id-ID">Bahasa Indonesia (印尼文)</option>
-  <option value="th-TH">ภาษาไทย (泰文)</option>
-  <option value="fil-PH">Filipino (菲律賓文)</option>
-  <option value="km-KH">ភាសាខ្មែរ (柬埔寨文)</option>
-  <option value="my-MM">မြန်မာဘာသာ (緬甸文)</option>
-</select>
+      <select id="lang-select" onchange="updateSpeakLabel(); updateCitizenDefaultText();">
+        <option value="en">English (英文)</option>
+        <option value="ja">日本語 (日文)</option>
+        <option value="ko">한국어 (韓文)</option>
+        <option value="vi">Tiếng Việt (越南文)</option>
+        <option value="id">Bahasa Indonesia (印尼文)</option>
+        <option value="th">ภาษาไทย (泰文)</option>
+        <option value="fil">Filipino (菲律賓文)</option>
+        <option value="km">ភាសាខ្មែរ (柬埔寨文)</option>
+        <option value="my">မြန်မာဘာသာ (緬甸文)</option>
+      </select>
     </div>
 
     <!-- 櫃檯人員端 (下方，正常方向) -->
     <div class="panel panel-staff">
       <div class="text-box" id="staff-text">請按下方按鈕開始說話
 交談中請勿透露詳細個資</div>
-      <button class="btn btn-staff btn-floating" id="btn-staff" onclick="startRecognition('zh-TW', 'staff-text', 'citizen-text', document.getElementById('lang-select').value)">
+      <button class="btn btn-staff btn-floating" id="btn-staff" onclick="startRecognition(event, 'zh-TW', 'staff-text', 'citizen-text', document.getElementById('lang-select').value)">
         說話
       </button>
       <div class="corner-label">戶政多語通</div>
@@ -424,7 +424,7 @@ Avoid sharing personal info</div>
   <script>
     // ======= 上班時間設定（可依實際需求調整） =======
     // 上班開始／結束時間（24 小時制）
-    const OFFICE_START = { hour: 8, minute: 30 };
+    const OFFICE_START = { hour: 7, minute: 30 };
     const OFFICE_END   = { hour: 17, minute: 30 };
     // 允許使用的星期（0=週日, 1=週一, ..., 6=週六）。預設週一到週五。
     const OFFICE_DAYS = [1, 2, 3, 4, 5];
@@ -632,6 +632,9 @@ Avoid sharing personal info</div>
     // ⚠️ 請將雙引號內的網址替換為你 Google Apps Script 部署後產生的 Web App URL ⚠️
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwelifoH99yjFvjMIY_vraVf4LiRxypJ1-wKAWXQy1wJussTI58GALefPker17Lqlg/exec";
 
+    // ⚠️ 必須與 Code.gs 裡的 APP_SECRET 完全一致，否則後端會拒絕請求 ⚠️
+    const APP_SECRET = "bc2ebd814749b213873005714e87af6d";
+
     // 檢查瀏覽器是否支援語音辨識 API
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -776,7 +779,7 @@ Avoid sharing personal info</div>
       }
     });
 
-    function startRecognition(sourceLang, sourceElemId, targetElemId, targetLang) {
+    function startRecognition(evt, sourceLang, sourceElemId, targetElemId, targetLang) {
       if (!SpeechRecognition) {
         alert("您的瀏覽器不支援語音辨識，建議使用 Chrome 瀏覽器。");
         return;
@@ -787,7 +790,7 @@ Avoid sharing personal info</div>
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
-      const btn = event.target;
+      const btn = evt.currentTarget;
       const originalText = btn.innerText;
 
       // 一旦民眾端訊息框即將被實際對話內容覆蓋，就不再套用預設語言提示
@@ -844,11 +847,15 @@ Avoid sharing personal info</div>
     }
 
     // 傳送文字至 Google Apps Script 進行翻譯
+    // 改用 POST 並將內容放在 request body，避免民眾說話內容出現在網址列、
+    // 瀏覽器歷史紀錄或各種伺服器存取紀錄中。
     function translateText(text, source, target, targetElemId) {
-      // 組合 API 請求網址
-      const url = `${GAS_URL}?text=${encodeURIComponent(text)}&source=${source}&target=${target}`;
-
-      fetch(url)
+      fetch(GAS_URL, {
+        method: "POST",
+        // 用 text/plain 送出，可避免瀏覽器對 GAS 發出跨網域「預檢請求(preflight)」
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ text, source, target, key: APP_SECRET })
+      })
         .then(response => response.json())
         .then(data => {
           // 將翻譯結果顯示在對方的畫面上
