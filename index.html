@@ -239,6 +239,110 @@
         padding: 8px 20px;
       }
     }
+    /* 非上班時間鎖定畫面 */
+    #office-hours-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #2c3e50;
+      color: white;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      text-align: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    #office-hours-overlay h1 {
+      font-size: clamp(1.3em, 5vw, 2em);
+      margin-bottom: 12px;
+    }
+
+    #office-hours-overlay p {
+      font-size: clamp(0.9em, 3.5vw, 1.2em);
+      opacity: 0.85;
+      margin: 4px 0;
+    }
+    /* 疑似個資偵測警示視窗 */
+    #pii-warning-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1100;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    /* 當是外籍民眾發話觸發時，警示視窗需整個翻轉180度，方便對面民眾閱讀 */
+    #pii-warning-overlay.face-citizen {
+      transform: rotate(180deg);
+    }
+
+    #pii-warning-box {
+      background: white;
+      border-radius: 16px;
+      padding: clamp(16px, 4vw, 28px);
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    #pii-warning-box .pii-icon {
+      font-size: clamp(1.8em, 6vw, 2.4em);
+      margin-bottom: 8px;
+    }
+
+    #pii-warning-box h3 {
+      margin: 0 0 10px 0;
+      color: #c0392b;
+      font-size: clamp(1em, 4vw, 1.3em);
+    }
+
+    #pii-warning-box p {
+      margin: 0 0 18px 0;
+      color: #333;
+      font-size: clamp(0.85em, 3.4vw, 1.05em);
+      line-height: 1.5;
+    }
+
+    .pii-btn-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .pii-btn {
+      flex: 1;
+      min-width: 120px;
+      font-size: clamp(0.85em, 3.2vw, 1.05em);
+      padding: clamp(10px, 2.5vw, 14px) clamp(10px, 3vw, 18px);
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      color: white;
+      font-weight: bold;
+    }
+
+    .pii-btn-cancel {
+      background-color: #757575;
+    }
+
+    .pii-btn-send {
+      background-color: #e53935;
+    }
   </style>
 </head>
 <body>
@@ -247,6 +351,25 @@
   <div id="start-overlay" onclick="startApp()">
     <h1>👆 請點擊螢幕開始使用</h1>
     <p>Tap the screen to start / タップして開始</p>
+  </div>
+
+  <!-- 非上班時間鎖定畫面 -->
+  <div id="office-hours-overlay">
+    <h1>⏰ 目前非服務時間</h1>
+    <p id="office-hours-message">本系統僅開放上班時間使用</p>
+  </div>
+
+  <!-- 疑似個資偵測警示視窗 -->
+  <div id="pii-warning-overlay">
+    <div id="pii-warning-box">
+      <div class="pii-icon">⚠️</div>
+      <h3 id="pii-warning-title">偵測到疑似個人資料</h3>
+      <p id="pii-warning-message">這句話疑似包含姓名、身分證字號、生日或地址等個人資料，建議改用手寫方式填寫。</p>
+      <div class="pii-btn-row">
+        <button class="pii-btn pii-btn-cancel" id="pii-btn-cancel" onclick="cancelPendingTranslation()">本句不傳送</button>
+        <button class="pii-btn pii-btn-send" id="pii-btn-send" onclick="confirmPendingTranslation()">繼續傳送</button>
+      </div>
+    </div>
   </div>
 
   <div class="container">
@@ -285,6 +408,213 @@
   </div>
 
   <script>
+    // ======= 上班時間設定（可依實際需求調整） =======
+    // 上班開始／結束時間（24 小時制）
+    const OFFICE_START = { hour: 8, minute: 30 };
+    const OFFICE_END   = { hour: 17, minute: 30 };
+    // 允許使用的星期（0=週日, 1=週一, ..., 6=週六）。預設週一到週五。
+    const OFFICE_DAYS = [1, 2, 3, 4, 5];
+
+    function isOfficeHours() {
+      const now = new Date();
+      const day = now.getDay();
+      if (!OFFICE_DAYS.includes(day)) return false;
+
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const startMinutes = OFFICE_START.hour * 60 + OFFICE_START.minute;
+      const endMinutes = OFFICE_END.hour * 60 + OFFICE_END.minute;
+
+      return nowMinutes >= startMinutes && nowMinutes < endMinutes;
+    }
+
+    function pad2(n) {
+      return String(n).padStart(2, '0');
+    }
+
+    function checkOfficeHours() {
+      const overlay = document.getElementById('office-hours-overlay');
+      if (isOfficeHours()) {
+        overlay.style.display = 'none';
+      } else {
+        overlay.style.display = 'flex';
+        document.getElementById('office-hours-message').innerText =
+          `本系統僅開放上班時間使用（週一至週五 ${pad2(OFFICE_START.hour)}:${pad2(OFFICE_START.minute)}–${pad2(OFFICE_END.hour)}:${pad2(OFFICE_END.minute)}）`;
+        // 若語音辨識正在進行中，離開上班時間就強制停止
+        try {
+          const btnCitizen = document.getElementById('btn-citizen');
+          const btnStaff = document.getElementById('btn-staff');
+          if (btnCitizen) btnCitizen.classList.remove('recording');
+          if (btnStaff) btnStaff.classList.remove('recording');
+        } catch (e) {}
+      }
+    }
+
+    // 進入頁面時先檢查一次，之後每 30 秒重新檢查一次
+    checkOfficeHours();
+    setInterval(checkOfficeHours, 30000);
+
+    // ======= 疑似個資偵測：多語言警示文字 =======
+    const piiWarningLabels = {
+      "zh-TW": {
+        title: "偵測到疑似個人資料",
+        message: "這句話疑似包含姓名、身分證字號、生日或地址等個人資料，建議改用手寫方式填寫。",
+        cancel: "本句不傳送",
+        send: "繼續傳送"
+      },
+      en: {
+        title: "Possible personal information detected",
+        message: "This sentence may contain a name, ID number, birth date, or address. We suggest writing it by hand instead.",
+        cancel: "Don't send this",
+        send: "Send anyway"
+      },
+      ja: {
+        title: "個人情報の可能性を検出しました",
+        message: "氏名・身分証番号・生年月日・住所などが含まれている可能性があります。手書きでの記入をおすすめします。",
+        cancel: "送信しない",
+        send: "そのまま送信"
+      },
+      ko: {
+        title: "개인정보 가능성이 감지되었습니다",
+        message: "이름, 신분증 번호, 생년월일, 주소 등이 포함되어 있을 수 있습니다. 손으로 직접 작성하는 것을 권장합니다.",
+        cancel: "전송 안 함",
+        send: "그래도 전송"
+      },
+      vi: {
+        title: "Phát hiện có thể chứa thông tin cá nhân",
+        message: "Câu này có thể chứa tên, số CMND/CCCD, ngày sinh hoặc địa chỉ. Nên viết tay thay vì đọc ra.",
+        cancel: "Không gửi câu này",
+        send: "Vẫn gửi"
+      },
+      id: {
+        title: "Terdeteksi kemungkinan data pribadi",
+        message: "Kalimat ini mungkin berisi nama, nomor KTP, tanggal lahir, atau alamat. Sebaiknya tulis tangan saja.",
+        cancel: "Jangan kirim",
+        send: "Tetap kirim"
+      },
+      th: {
+        title: "ตรวจพบข้อมูลส่วนตัวที่อาจปรากฏ",
+        message: "ประโยคนี้อาจมีชื่อ เลขบัตรประชาชน วันเกิด หรือที่อยู่ แนะนำให้เขียนด้วยมือแทน",
+        cancel: "ไม่ส่งประโยคนี้",
+        send: "ส่งต่อไป"
+      },
+      fil: {
+        title: "Natukoy na posibleng personal na impormasyon",
+        message: "Maaaring may pangalan, ID number, kaarawan, o address ang pangungusap na ito. Mas mainam na isulat na lang ito sa kamay.",
+        cancel: "Huwag ipadala",
+        send: "Ipadala pa rin"
+      },
+      km: {
+        title: "រកឃើញព័ត៌មានផ្ទាល់ខ្លួនដែលអាចមាន",
+        message: "ប្រយោគនេះអាចមានឈ្មោះ លេខអត្តសញ្ញាណប័ណ្ណ ថ្ងៃខែឆ្នាំកំណើត ឬអាសយដ្ឋាន។ សូមណែនាំឱ្យសរសេរដោយដៃជំនួសវិញ។",
+        cancel: "កុំផ្ញើ",
+        send: "នៅតែផ្ញើ"
+      },
+      my: {
+        title: "ကိုယ်ရေးအချက်အလက်ဖြစ်နိုင်သည်ကို တွေ့ရှိသည်",
+        message: "ဒီစာကြောင်းတွင် နာမည်၊ ID နံပါတ်၊ မွေးနေ့ (သို့) လိပ်စာ ပါဝင်နိုင်ပါသည်။ လက်ရေးဖြင့် ရေးရန် အကြံပြုပါသည်။",
+        cancel: "မပို့ပါ",
+        send: "ဆက်ပို့မည်"
+      }
+    };
+
+    // 各語言常見的「個資相關」關鍵字（口語提及姓名／身分證／地址／生日等時的觸發字詞）
+    const piiKeywords = {
+      "zh-TW": ["姓名", "身分證", "身份證", "身分證字號", "住址", "地址", "戶籍", "出生", "生日", "電話", "手機號碼", "護照號碼", "居留證"],
+      en: ["my name is", "id number", "identity card", "passport number", "date of birth", "birthday", "born on", "address is", "phone number"],
+      ja: ["名前は", "身分証", "パスポート番号", "生年月日", "誕生日", "住所は", "電話番号"],
+      ko: ["제 이름은", "신분증", "여권 번호", "생년월일", "생일", "주소는", "전화번호"],
+      vi: ["tên tôi là", "chứng minh nhân dân", "căn cước công dân", "số hộ chiếu", "ngày sinh", "địa chỉ là", "số điện thoại"],
+      id: ["nama saya", "nomor ktp", "nomor paspor", "tanggal lahir", "alamat saya", "nomor telepon"],
+      th: ["ชื่อของฉันคือ", "บัตรประชาชน", "หมายเลขพาสปอร์ต", "วันเกิด", "ที่อยู่ของฉัน", "เบอร์โทร"],
+      fil: ["ang pangalan ko", "id number", "numero ng pasaporte", "kaarawan", "petsa ng kapanganakan", "address ko", "numero ng telepono"],
+      km: ["ខ្ញុំឈ្មោះ", "អត្តសញ្ញាណប័ណ្ណ", "លេខលិខិតឆ្លងដែន", "ថ្ងៃខែឆ្នាំកំណើត", "អាសយដ្ឋាន", "លេខទូរស័ព្ទ"],
+      my: ["ကျွန်တော့်နာမည်", "ကျွန်မနာမည်", "မှတ်ပုံတင်", "ပတ်စ်ပို့နံပါတ်", "မွေးနေ့", "လိပ်စာ", "ဖုန်းနံပါတ်"]
+    };
+
+    // 偵測疑似個資：數字型樣式（身分證字號、電話、日期等）採用「跨語言通用」規則，
+    // 文字關鍵字則依語言分別比對
+    function detectPossiblePII(text, langCode) {
+      if (!text) return false;
+
+      // 台灣身分證字號格式：1個英文字母 + 9碼數字
+      if (/[A-Za-z][12]\d{8}/.test(text)) return true;
+
+      // 手機號碼格式：09 開頭共 10 碼（可能含連字號、空格）
+      if (/09\d{2}[-\s]?\d{3}[-\s]?\d{3}/.test(text)) return true;
+
+      // 8 碼以上連續數字（可能是身分證、電話、生日等）
+      if (/\d[\d\s-]{7,}\d/.test(text)) return true;
+
+      // 常見日期格式，如 1990/01/01、1990-01-01、民國79年1月1日、79年3月5日 等
+      if (/\d{2,4}\s*[\/\-年]\s*\d{1,2}\s*[\/\-月]\s*\d{1,2}\s*日?/.test(text)) return true;
+
+      // 依語言比對常見「提及個資」的關鍵字／片語
+      const keywords = piiKeywords[langCode] || [];
+      const lowerText = text.toLowerCase();
+      for (const kw of keywords) {
+        if (lowerText.includes(kw.toLowerCase())) return true;
+      }
+
+      return false;
+    }
+
+    // 暫存「使用者尚未決定是否傳送」的辨識結果
+    let pendingTranslation = null;
+
+    function showPiiWarning(langCode) {
+      const labels = piiWarningLabels[langCode] || piiWarningLabels.en;
+      document.getElementById("pii-warning-title").innerText = labels.title;
+      document.getElementById("pii-warning-message").innerText = labels.message;
+      document.getElementById("pii-btn-cancel").innerText = labels.cancel;
+      document.getElementById("pii-btn-send").innerText = labels.send;
+      const overlay = document.getElementById("pii-warning-overlay");
+      // 若是外籍民眾發話觸發，警示視窗需翻轉180度朝向對面民眾；櫃檯人員（中文）發話則維持正常方向
+      if (langCode === "zh-TW") {
+        overlay.classList.remove("face-citizen");
+      } else {
+        overlay.classList.add("face-citizen");
+      }
+      overlay.style.display = "flex";
+    }
+
+    function hidePiiWarning() {
+      document.getElementById("pii-warning-overlay").style.display = "none";
+    }
+
+    // 使用者選擇「本句不傳送」
+    function cancelPendingTranslation() {
+      if (pendingTranslation) {
+        const noticeText = {
+          "zh-TW": "（此句未傳送）",
+        };
+        // 在來源畫面標註此句未傳送，避免造成困惑
+        const sourceElem = document.getElementById(pendingTranslation.sourceElemId);
+        if (sourceElem) {
+          sourceElem.innerText = pendingTranslation.transcript + " " + (noticeText["zh-TW"]);
+        }
+        const targetElem = document.getElementById(pendingTranslation.targetElemId);
+        if (targetElem) {
+          targetElem.innerText = "";
+        }
+      }
+      pendingTranslation = null;
+      hidePiiWarning();
+    }
+
+    // 使用者選擇「繼續傳送」
+    function confirmPendingTranslation() {
+      if (pendingTranslation) {
+        const { transcript, sourceLang, targetLang, targetElemId } = pendingTranslation;
+        const translatingText = (targetElemId === 'citizen-text')
+          ? (translatingLabels[targetLang] || "Translating...")
+          : "翻譯中...";
+        document.getElementById(targetElemId).innerText = translatingText;
+        translateText(transcript, sourceLang, targetLang, targetElemId);
+      }
+      pendingTranslation = null;
+      hidePiiWarning();
+    }
+
     // ⚠️ 請將雙引號內的網址替換為你 Google Apps Script 部署後產生的 Web App URL ⚠️
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwelifoH99yjFvjMIY_vraVf4LiRxypJ1-wKAWXQy1wJussTI58GALefPker17Lqlg/exec";
 
@@ -418,6 +748,14 @@
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript;
         document.getElementById(sourceElemId).innerText = transcript;
+
+        // 偵測這句話是否疑似包含個人資料
+        if (detectPossiblePII(transcript, sourceLang)) {
+          // 暫停自動翻譯，先跳出警示視窗讓使用者決定
+          pendingTranslation = { transcript, sourceLang, targetLang, sourceElemId, targetElemId };
+          showPiiWarning(sourceLang);
+          return;
+        }
 
         // 目標畫面若是外籍民眾端，「翻譯中」文字需依其選定語言顯示；
         // 若目標是櫃檯人員端（中文），維持顯示中文提示
