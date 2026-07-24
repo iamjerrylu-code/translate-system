@@ -542,11 +542,25 @@ Avoid sharing personal info</div>
       document.getElementById("pii-warning-overlay").style.display = "none";
     }
 
+    const noticeNotSentLabels = {
+      "zh-TW": "（此句未傳送）",
+      en: "(Not sent)",
+      ja: "（送信されていません）",
+      ko: "（전송되지 않음）",
+      vi: "(Chưa gửi)",
+      id: "(Tidak dikirim)",
+      th: "(ไม่ได้ส่ง)",
+      fil: "(Hindi ipinadala)",
+      km: "（មិនបានផ្ញើ）",
+      my: "（မပို့ရသေးပါ）"
+    };
+
     function cancelPendingTranslation() {
       if (pendingTranslation) {
         const sourceElem = document.getElementById(pendingTranslation.sourceElemId);
         if (sourceElem) {
-          sourceElem.innerText = pendingTranslation.transcript + " （此句未傳送）";
+          const notice = noticeNotSentLabels[pendingTranslation.sourceLang] || noticeNotSentLabels["zh-TW"];
+          sourceElem.innerText = pendingTranslation.transcript + " " + notice;
         }
         const targetElem = document.getElementById(pendingTranslation.targetElemId);
         if (targetElem) {
@@ -559,12 +573,12 @@ Avoid sharing personal info</div>
 
     function confirmPendingTranslation() {
       if (pendingTranslation) {
-        const { transcript, sourceLang, targetLang, targetElemId } = pendingTranslation;
+        const { transcript, sourceLang, targetLang, sourceElemId, targetElemId } = pendingTranslation;
         const translatingText = (targetElemId === 'citizen-text')
           ? (translatingLabels[targetLang] || "Translating...")
           : "翻譯中...";
         document.getElementById(targetElemId).innerText = translatingText;
-        translateText(transcript, sourceLang, targetLang, targetElemId);
+        translateText(transcript, sourceLang, targetLang, targetElemId, sourceElemId);
       }
       pendingTranslation = null;
       hidePiiWarning();
@@ -704,7 +718,17 @@ Avoid sharing personal info</div>
       }
 
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ audio: true })
+        // 嘗試放寬瀏覽器對音訊的自動處理（部分 Android 裝置的降噪/回音消除
+        // 預設會把稍微小聲或有距離的人聲一併濾掉，關閉後有機會讓收音更靈敏）。
+        // 注意：這組參數是否真的生效、以及是否會被 SpeechRecognition 內部
+        // 沿用，依廠牌與 Chrome 版本而異，並非保證有效，僅為低風險的嘗試。
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: true
+          }
+        })
           .then(function(stream) {
             stream.getTracks().forEach(function(track) { track.stop(); });
           })
@@ -740,7 +764,7 @@ Avoid sharing personal info</div>
       const recognitionLang = recognitionLangMap[sourceLang] || sourceLang;
 
       recognition.lang = recognitionLang;
-      recognition.interimResults = false;
+      recognition.interimResults = true; // 開啟即時暫時結果，作為引擎提早結束時的備案
       recognition.continuous = false;
       recognition.maxAlternatives = 1;
 
@@ -749,18 +773,17 @@ Avoid sharing personal info</div>
       let gotResult = false;
       let finished = false;
       let timeoutId = null;
+      let finalHandled = false;        // 是否已經處理過「最終(final)結果」
+      let lastInterimTranscript = "";  // 最後一次收到的暫時(interim)辨識文字，作為備案
+      let errorHandled = false;        // 是否已經由 onerror 顯示過錯誤訊息
 
       if (sourceElemId === 'citizen-text' || targetElemId === 'citizen-text') {
         citizenBoxIsDefault = false;
       }
 
-      const currentRecordingLabel = (sourceLang === 'zh-TW')
-        ? "收音中..."
-        : (recordingLabels[sourceLang] || "Listening...");
-
-      const currentListeningLabel = (sourceLang === 'zh-TW')
-        ? "聆聽中..."
-        : (recordingLabels[sourceLang] || "Listening...");
+      function getListeningLabel(lang) {
+        return (lang === 'zh-TW') ? "收音中..." : (recordingLabels[lang] || "Listening...");
+      }
 
       function restoreButton() {
         btn.classList.remove("recording");
@@ -781,13 +804,14 @@ Avoid sharing personal info</div>
       }
 
       btn.classList.add("recording");
-      btn.innerText = currentRecordingLabel;
-      document.getElementById(sourceElemId).innerText = currentListeningLabel;
+      btn.innerText = getListeningLabel(sourceLang);
+      document.getElementById(sourceElemId).innerText = getListeningLabel(sourceLang);
 
       // 部分 Chrome / Android 裝置在非英文語系可能不觸發 speechend，
       // 因此加入 12 秒保險逾時，避免畫面永久卡在「收音中」。
       timeoutId = setTimeout(function() {
         if (finished || gotResult) return;
+        errorHandled = true;
         try { recognition.stop(); } catch (e) {}
         document.getElementById(sourceElemId).innerText =
           (sourceLang === 'zh-TW')
@@ -800,24 +824,11 @@ Avoid sharing personal info</div>
         console.log("語音辨識已啟動，語系：", recognitionLang);
       };
 
-      recognition.onaudiostart = function() {
-        console.log("麥克風已開始接收音訊");
-      };
-
-      recognition.onspeechstart = function() {
-        console.log("已偵測到語音");
-      };
-
-      recognition.onresult = function(event) {
-        gotResult = true;
-        clearRecognitionTimeout();
-
-        if (!event.results || !event.results[0] || !event.results[0][0]) {
-          document.getElementById(sourceElemId).innerText = "未取得辨識結果，請再試一次。";
-          return;
-        }
-
-        const transcript = event.results[0][0].transcript.trim();
+      // 處理最終(final)辨識結果：個資偵測 + 翻譯，統一由這裡處理，
+      // 不論是正常的 final 結果、還是引擎提早結束時用暫時結果當備案，都走同一條路。
+      function finalizeTranscript(transcript) {
+        if (finalHandled) return; // 避免同一次收音被處理兩次
+        finalHandled = true;
 
         if (!transcript) {
           document.getElementById(sourceElemId).innerText = "未取得辨識文字，請再試一次。";
@@ -843,11 +854,38 @@ Avoid sharing personal info</div>
           : "翻譯中...";
 
         document.getElementById(targetElemId).innerText = translatingText;
-        translateText(transcript, sourceLang, targetLang, targetElemId);
+        translateText(transcript, sourceLang, targetLang, targetElemId, sourceElemId);
+      }
+
+      recognition.onresult = function(event) {
+        gotResult = true;
+        clearRecognitionTimeout();
+
+        if (!event.results || !event.results.length) {
+          document.getElementById(sourceElemId).innerText = "未取得辨識結果，請再試一次。";
+          return;
+        }
+
+        // 開啟 interimResults 後，同一次收音可能觸發多次 onresult，
+        // 只取最新的一筆（陣列最後一筆）來判斷是暫時結果還是最終結果。
+        const latestResult = event.results[event.results.length - 1];
+        if (!latestResult || !latestResult[0]) return;
+
+        const transcript = latestResult[0].transcript.trim();
+
+        if (latestResult.isFinal) {
+          finalizeTranscript(transcript);
+        } else if (transcript) {
+          // 即時字幕：講話過程中就先讓對方看到目前辨識到的內容，
+          // 同時記住這句作為備案，萬一之後沒有收到 final 結果就用這句頂上。
+          lastInterimTranscript = transcript;
+          document.getElementById(sourceElemId).innerText = transcript;
+        }
       };
 
       recognition.onnomatch = function() {
         clearRecognitionTimeout();
+        errorHandled = true;
         document.getElementById(sourceElemId).innerText =
           "聽到聲音，但無法辨識內容，請說慢一點再試一次。";
       };
@@ -857,12 +895,9 @@ Avoid sharing personal info</div>
         try { recognition.stop(); } catch (e) {}
       };
 
-      recognition.onaudioend = function() {
-        console.log("麥克風音訊接收結束");
-      };
-
       recognition.onerror = function(event) {
         clearRecognitionTimeout();
+        errorHandled = true;
         console.error("語音辨識錯誤：", event.error, "；語系：", recognitionLang);
 
         const friendlyErrors = {
@@ -886,6 +921,18 @@ Avoid sharing personal info</div>
         finished = true;
         clearRecognitionTimeout();
         console.log("語音辨識結束；語系：", recognitionLang, "；是否取得結果：", gotResult);
+
+        if (!finalHandled && lastInterimTranscript) {
+          // 引擎有時會在還沒送出 final 結果前就結束（例如過早判斷講完了），
+          // 這種情況下如果之前有暫時(interim)結果，就用它當備案繼續翻譯，
+          // 避免使用者講的話整句被吃掉、卻只看到空白或錯誤訊息。
+          finalizeTranscript(lastInterimTranscript);
+        } else if (!finalHandled && !errorHandled) {
+          // 完全沒有觸發過 onresult、onerror、onnomatch，也還沒被 12 秒逾時處理過，
+          // 避免畫面卡在「聆聽中...」不動。
+          document.getElementById(sourceElemId).innerText = "沒有偵測到語音，請再試一次。";
+        }
+
         restoreButton();
       };
 
@@ -900,19 +947,36 @@ Avoid sharing personal info</div>
       }
     }
 
-    function translateText(text, source, target, targetElemId) {
+    function translateText(text, source, target, targetElemId, sourceElemId) {
+      const controller = new AbortController();
+      // 15 秒逾時保護：避免 GAS／Gemini 端無回應時，畫面永遠卡在「翻譯中...」
+      const timeoutId = setTimeout(function() { controller.abort(); }, 15000);
+
       fetch(GAS_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ text, source, target, key: APP_SECRET })
+        body: JSON.stringify({ text, source, target, key: APP_SECRET }),
+        signal: controller.signal
       })
         .then(response => response.json())
         .then(data => {
+          clearTimeout(timeoutId);
+
+          // 若後端有回傳「修正後的原文」（語音辨識同音字校對，例如
+          // 「規劃證書」→「歸化證書」），一併更新來源端顯示的文字，
+          // 避免螢幕上留著明顯錯誤的同音字讓櫃檯人員心生疑慮。
+          if (sourceElemId && data.corrected) {
+            const sourceElem = document.getElementById(sourceElemId);
+            if (sourceElem) sourceElem.innerText = data.corrected;
+          }
+
           document.getElementById(targetElemId).innerText = data.translated;
         })
         .catch(error => {
+          clearTimeout(timeoutId);
           console.error('Error:', error);
-          document.getElementById(targetElemId).innerText = "連線翻譯伺服器發生錯誤";
+          document.getElementById(targetElemId).innerText =
+            (error.name === 'AbortError') ? "翻譯逾時，請再試一次。" : "連線翻譯伺服器發生錯誤";
         });
     }
   </script>
