@@ -181,6 +181,20 @@
       animation: pulse 1.5s infinite;
     }
 
+    /* 今日 Gemini 成功使用次數：畫面正下方中央、淺灰色 */
+    .daily-success-count {
+      position: fixed;
+      left: 50%;
+      bottom: max(4px, env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      color: #b0b0b0;
+      font-size: clamp(0.75em, 2.6vw, 1em);
+      font-weight: normal;
+      z-index: 20;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
     @keyframes pulse {
       0% { transform: scale(1); }
       50% { transform: scale(1.05); }
@@ -391,6 +405,8 @@ Avoid sharing personal info</div>
 
   </div>
 
+  <div class="daily-success-count" id="daily-success-count">今日成功使用：0 次</div>
+
   <script>
     const OFFICE_START = { hour: 7, minute: 30 };
     const OFFICE_END   = { hour: 17, minute: 30 };
@@ -587,6 +603,24 @@ Avoid sharing personal info</div>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwelifoH99yjFvjMIY_vraVf4LiRxypJ1-wKAWXQy1wJussTI58GALefPker17Lqlg/exec";
     const APP_SECRET = "bc2ebd814749b213873005714e87af6d";
 
+    function updateDailySuccessCount(count) {
+      const el = document.getElementById("daily-success-count");
+      if (el && Number.isFinite(Number(count))) {
+        el.innerText = "今日成功使用：" + Number(count) + " 次";
+      }
+    }
+
+    function loadDailySuccessCount() {
+      fetch(GAS_URL + "?action=dailySuccessCount&key=" + encodeURIComponent(APP_SECRET))
+        .then(response => response.json())
+        .then(data => {
+          if (typeof data.dailySuccessCount !== "undefined") {
+            updateDailySuccessCount(data.dailySuccessCount);
+          }
+        })
+        .catch(error => console.warn("讀取今日成功使用次數失敗：", error));
+    }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if ('serviceWorker' in navigator) {
@@ -691,6 +725,7 @@ Avoid sharing personal info</div>
 
     updateSpeakLabel();
     updateCitizenDefaultText();
+    loadDailySuccessCount();
 
     function startApp() {
       const el = document.documentElement;
@@ -968,6 +1003,10 @@ Avoid sharing personal info</div>
           if (sourceElemId && data.corrected) {
             const sourceElem = document.getElementById(sourceElemId);
             if (sourceElem) sourceElem.innerText = data.corrected;
+          }
+
+          if (typeof data.dailySuccessCount !== "undefined") {
+            updateDailySuccessCount(data.dailySuccessCount);
           }
 
           document.getElementById(targetElemId).innerText = data.translated;
